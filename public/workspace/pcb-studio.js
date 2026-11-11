@@ -435,7 +435,7 @@ function kicadDraft(b=board){
  const connections=netlib.exportGraph(b,pads(b),unionNets(b)),q=s=>'"'+String(s).replace(/["\\]/g,"")+'"',f=n=>Number(n).toFixed(4),line=[];
  const getNet=ref=>connections.nets.get(ref)||0,netName=n=>n?connections.netNames[n-1]?.name||"":"";
  line.push('(kicad_pcb (version 20241229) (generator "robot_forge") (generator_version "9.0")',
-  ' (general (thickness 1.6) (legacy_teardrops no))',' (paper "A4")',
+  ' (general (thickness 1.6))',' (paper "A4")',
   ' (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user) (44 "Edge.Cuts" user))',
   ' (setup (pad_to_mask_clearance 0))',' (net 0 "")');
  for(const net of connections.netNames)line.push(' (net '+net.number+' '+q(net.name)+')');
