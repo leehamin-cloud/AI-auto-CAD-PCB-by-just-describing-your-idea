@@ -382,6 +382,7 @@ function open(){
  const a=$s("#rfCadTab"),b=$s("#rfPcbTab");
  a?.classList.remove("active");a?.setAttribute("aria-pressed","false");
  b?.classList.add("active");b?.setAttribute("aria-pressed","true");
+ const label=$s("#exportButton span");if(label)label.textContent="PCB 파일";
  load();setTool("move");draw();
 }
 function close(){
@@ -391,11 +392,19 @@ function close(){
  const a=$s("#rfCadTab"),b=$s("#rfPcbTab");
  a?.classList.add("active");a?.setAttribute("aria-pressed","true");
  b?.classList.remove("active");b?.setAttribute("aria-pressed","false");
+ const label=$s("#exportButton span");if(label)label.textContent="파일 받기";
  if(typeof activatePanel==="function")activatePanel("cad");
  if(typeof scheduleDraw==="function")scheduleDraw();
 }
 function bind(){
  $s("#rfPcbTab")?.addEventListener("click",open);
+ // The original CAD toolbar owns this button; intercept it only in PCB mode.
+ $s("#exportButton")?.addEventListener("click",event=>{
+  if(!active)return;
+  event.stopImmediatePropagation();
+  event.preventDefault();
+  showExport();
+ },{capture:true});
  $s("#rfCadTab")?.addEventListener("click",close);
  $$s("[data-pcb-add]").forEach(b=>b.addEventListener("click",()=>add(b.dataset.pcbAdd)));
  $$s("[data-pcb-tool]").forEach(b=>b.addEventListener("click",()=>setTool(b.dataset.pcbTool)));
@@ -426,6 +435,6 @@ function bind(){
  });
 }
 document.addEventListener("DOMContentLoaded",bind);
-window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,sizeUpdate,validate,exportBoard,
+window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,sizeUpdate,validate,showExport,exportBoard,
  test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
 })();
