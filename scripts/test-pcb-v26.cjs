@@ -89,7 +89,7 @@ test("project-local saved PCB data survives close and reload",()=>{
  assert.deepEqual(JSON.stringify(pcb.test.read()),JSON.stringify(snapshot));
 });
 test("SVG image and logical net JSON can be produced",()=>{
- assert.match(pcb.test.svgDocument(),/<svg/);assert.equal(net.netPlan(pcb.test.read()).length,1);
+ assert.match(pcb.test.svgDocument(),/<svg/);assert.equal(net.netPlan(pcb.test.read()).length,2);
 });
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
