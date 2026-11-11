@@ -531,7 +531,6 @@ function kicadDraft(b=board){
   line.push('  (property "Reference" '+q(c.id)+' (at 0 '+f(-comp.h/2-2.5)+') (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (property "Value" '+q(comp.label)+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
-  line.push('  (property "RobotForge_Notice" "Reference geometry, not validated against manufacturer part" (at 0 0) (layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
    const p=comp.pads[i],ref=c.id+":"+(i+1),net=getNet(ref);
