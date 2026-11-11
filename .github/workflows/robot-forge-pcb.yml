@@ -14,6 +14,7 @@ on:
       - 'public/workspace/pcb-kicad-schematic.js'
       - 'scripts/test-pcb-v26.cjs'
       - 'scripts/verify-kicad-parity.py'
+      - 'scripts/test-kicad-parity.py'
       - '.github/workflows/robot-forge-pcb.yml'
   workflow_dispatch:
 
@@ -26,8 +27,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Check browser PCB netlist, shorts and open connections
+      - name: Check browser PCB nets, footprints and geometry
         run: node scripts/test-pcb-v26.cjs
+      - name: Check independent KiCad file parity parser
+        run: python3 scripts/test-kicad-parity.py
 
   kicad-draft-parse-and-drc:
     needs: logical-netlist-tests
