@@ -114,3 +114,26 @@ body.pcb-mode .pcb-inspector{display:flex!important}
 body.pcb-mode #pcbSvg{background:linear-gradient(150deg,#fbfdff,#f1f8ff)}
 body.pcb-mode #pcbSvg:has(text[fill="#2c6f97"]){background:#f5faff}
 @media(max-width:680px){.pcb-view-toggle button{padding:7px 8px;font-size:10px}.pcb-canvas-top{padding:9px 10px 5px}.pcb-net-pins{gap:7px}}
+
+
+/* v2.7 schematic concepts, footprint-reference picker and electrical-rule helpers */
+.pcb-footprint-details{margin:13px 0;border:1px solid #d5e7f3;background:#f9fcff;border-radius:11px;padding:10px 11px}
+.pcb-footprint-details[hidden]{display:none!important}
+.pcb-footprint-details summary{cursor:pointer;list-style:none;font-size:11px;font-weight:800;color:#357aa6;display:flex;justify-content:space-between}
+.pcb-footprint-details summary::-webkit-details-marker{display:none}
+.pcb-footprint-details summary span{color:#9db0bd}
+.pcb-footprint-details label,.pcb-footprint-label{display:block;margin:13px 0 6px;color:#7293ab;font-size:10px;font-weight:750}
+.pcb-footprint-details select{display:block;width:100%;border:1px solid #cbe2f1;border-radius:8px;background:#fff;color:#396681;padding:9px;font-size:11px}
+.pcb-footprint-details button{width:100%;background:#eaf6ff;border:1px solid #c8e6f6;border-radius:8px;color:#287ba9;font-size:11px;font-weight:800;padding:9px;margin-top:9px}
+.pcb-footprint-details button:hover{background:#d9efff}
+.pcb-footprint-details p,.pcb-footprint-info{font-size:10px;color:#8c9eac;line-height:1.65;margin-top:10px;overflow-wrap:anywhere}
+.pcb-erc-summary{padding:10px;border:1px solid #d2e9f6;border-radius:9px;background:#f1faff;font-size:10px;color:#517d9c;line-height:1.75;white-space:pre-line;margin-bottom:9px}
+.pcb-erc-summary.has-issues{background:#fff4e9;border-color:#ebd0ad;color:#95622c}
+body.pcb-mode .pcb-view-toggle{flex-wrap:wrap}
+body.pcb-mode .pcb-canvas-top{align-items:flex-start}
+body.pcb-mode .pcb-canvas-top .pcb-view-toggle{margin-top:-2px}
+@media(max-width:680px){
+ .pcb-view-toggle button{font-size:9px;padding:8px 7px}
+ body.pcb-mode .pcb-canvas-top{gap:6px}
+ body.pcb-mode #pcbCanvasLabel{font-size:9px}
+}
