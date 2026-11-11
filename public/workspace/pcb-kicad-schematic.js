@@ -109,7 +109,7 @@ function make(board){
   ' (title_block (title "Robot Forge experimental schematic") (comment 1 "Generic symbols; datasheets and ERC unverified"))'+
   ' (lib_symbols\n'+[...defs.values()].join("\n")+'\n )\n'+
   chunks.join("\n")+'\n'+wires.join("\n")+'\n'+labels.join("\n")+
-  '\n (embedded_fonts no)\n)';
+  '\n (sheet_instances (path "/" (page "1")))\n (embedded_fonts no)\n)';
  return file;
 }
 function summary(board){
