@@ -412,7 +412,7 @@ function initBeginnerUX(){
  $("#welcomeDialog").addEventListener("cancel",()=>safeLocalSet(KO_WELCOME_KEY,"yes"));
  if(safeLocalGet("robotforge.guideHidden.v2")==="yes")$("#beginnerHelp").hidden=true;
  setUiMode(safeLocalGet(KO_MODE_KEY)==="expert"?"expert":"beginner",false);
- if(safeLocalGet(KO_WELCOME_KEY)!=="yes")requestAnimationFrame(showWelcome);
+ if(safeLocalGet(KO_WELCOME_KEY)!=="yes"&&!document.body.classList.contains("focus-layout"))requestAnimationFrame(showWelcome);
 }
 
 function renderSummary(){
