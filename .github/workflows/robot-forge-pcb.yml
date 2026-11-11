@@ -12,6 +12,8 @@ on:
       - 'public/workspace/pcb-parity.js'
       - 'public/workspace/pcb-footprint-graphics.js'
       - 'public/workspace/pcb-router-v30.js'
+      - 'public/workspace/pcb-quality-v31.js'
+      - 'scripts/check-kicad-upstream-v31.cjs'
       - 'public/workspace/index.html'
       - 'public/workspace/pcb-studio.css'
       - 'public/workspace/pcb-schematic.js'
@@ -33,6 +35,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check browser PCB nets, footprints and geometry
         run: node scripts/test-pcb-v26.cjs
+      - name: Check local source correspondence for six KiCad footprints
+        run: node scripts/check-kicad-upstream-v31.cjs
+      - name: Check upstream KiCad source revisions (fail closed on drift)
+        run: node scripts/check-kicad-upstream-v31.cjs --online
       - name: Check independent KiCad file parity parser
         run: python3 scripts/test-kicad-parity.py
 
