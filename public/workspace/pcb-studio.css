@@ -137,3 +137,22 @@ body.pcb-mode .pcb-canvas-top .pcb-view-toggle{margin-top:-2px}
  body.pcb-mode .pcb-canvas-top{gap:6px}
  body.pcb-mode #pcbCanvasLabel{font-size:9px}
 }
+
+
+/* v3.0: two copper layers, cautious autorouter and KiCad-source footprint artwork */
+.pcb-route-settings{margin-top:12px;padding:12px 11px;border:1px solid #d5e9f5;background:#f7fcff;border-radius:11px}
+.pcb-route-settings>label:first-child{font-size:11px;color:#5e849f;font-weight:800;display:block;margin-bottom:7px}
+#pcbRoutingLayer{display:block;width:100%;border:1px solid #c9e1f0;border-radius:8px;padding:9px;color:#3a7191;font-size:11px;background:#fff}
+.pcb-via-option{display:flex;gap:8px;align-items:center;margin-top:12px;color:#678fa7;font-size:10px}
+.pcb-via-option input{accent-color:#2e99d5}
+#pcbAutoRouteButton{display:block;width:100%;margin-top:11px;padding:12px 7px;border-radius:9px;border:1px solid #a6d6ee;color:#1273ae;background:#e6f5ff;font-weight:850;font-size:12px}
+#pcbAutoRouteButton:hover{background:#d2edff}
+#pcbAutoRouteStatus{white-space:pre-line;color:#6d94ab;font-size:10px;margin-top:10px;line-height:1.65}
+.pcb-route-settings p{margin:8px 0 0;color:#91a9b7;font-size:10px;line-height:1.6}
+#pcbSvg .pcb-trace.layer-f{stroke:#df7a55}
+#pcbSvg .pcb-trace.layer-b{stroke:#9b69d3}
+#pcbSvg .pcb-trace.layer-f.selected,#pcbSvg .pcb-trace.layer-b.selected{stroke:#ed465b}
+#pcbSvg .pcb-via>circle:first-child{fill:#9b70c7;stroke:#fff;stroke-width:.16}
+#pcbSvg .pcb-via .pcb-via-hole{fill:#e4f3f5;stroke:#5b779c;stroke-width:.1;pointer-events:none}
+#pcbSvg .pcb-footprint-silk{stroke:#397d91;fill:none;pointer-events:none}
+#pcbSvg .pcb-footprint-courtyard{stroke:#7facbb;fill:none;stroke-dasharray:.65 .65;pointer-events:none}
