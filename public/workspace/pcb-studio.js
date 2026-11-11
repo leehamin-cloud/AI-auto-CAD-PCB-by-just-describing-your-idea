@@ -7,8 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
-const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity;
-if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit)throw Error("PCB parts, pad dimensions, parity, schematic and KiCad export modules are required");
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity,router=window.robotForgeRouter;
+if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit||!router)throw Error("PCB parts, pads, routing, parity and schematic modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -46,7 +46,7 @@ function isValidShape(b){
   if(!t||typeof t.id!=="string"||t.id.length>36||
      typeof t.a!=="string"||typeof t.b!=="string"||t.a===t.b||
      !traceWidths.has(Number(t.width))||!/^([A-Z][1-9][0-9]{0,3}):[1-4]$/.test(t.a)||!/^([A-Z][1-9][0-9]{0,3}):[1-4]$/.test(t.b))return false;
-  if(!padPos(t.a,b)||!padPos(t.b,b))return false;
+  if(!padPos(t.a,b)||!padPos(t.b,b)||!router.validRoute(t,b,padPos))return false;
  }
  if(netlib.validateShape(b,pads(b).map(p=>p.ref)))return false;
  return true;
@@ -84,7 +84,7 @@ function padPos(reference,b=board){
  return {x:c.x+p[0]*co-p[1]*si,y:c.y+p[0]*si+p[1]*co};
 }
 function pads(b=board){return b.components.flatMap(c=>geometry(c).pads.map((_,i)=>({ref:c.id+":"+(i+1),...padPos(c.id+":"+(i+1),b)})))}
-function trackLines(b=board){return b.traces.map(t=>({id:t.id,a:t.a,b:t.b,start:padPos(t.a,b),end:padPos(t.b,b),width:t.width})).filter(t=>t.start&&t.end)}
+function trackLines(b=board){return b.traces.flatMap(t=>router.segments(t,padPos,b)).filter(t=>t.start&&t.end)}
 function unionNets(b=board){
  const parent=new Map();
  for(const p of pads(b))parent.set(p.ref,p.ref);
@@ -140,7 +140,7 @@ function validate(b=board){
   }
  }
  for(const line of lines){
-  if(dist(line.start,line.end)<1.5)issues.push(line.a+" ↔ "+line.b+" 배선 길이가 너무 짧습니다.");
+  if(dist(line.start,line.end)<0.05)issues.push(line.a+" ↔ "+line.b+" 배선에 길이 0에 가까운 조각이 있습니다.");
   for(const p of allPads){
    if(p.ref===line.a||p.ref===line.b)continue;
    if(pointSegDist(p,line.start,line.end)<1+line.width/2+0.25)
@@ -151,7 +151,7 @@ function validate(b=board){
  }
  for(let i=0;i<lines.length;i++)for(let j=i+1;j<lines.length;j++){
   const a=lines[i],b=lines[j];
-  if(a.a===b.a||a.a===b.b||a.b===b.a||a.b===b.b)continue;
+  if(a.id===b.id||a.layer!==b.layer||a.a===b.a||a.a===b.b||a.b===b.a||a.b===b.b)continue;
   if(intersects(a.start,a.end,b.start,b.end))issues.push(a.id+"과 "+b.id+" 배선이 같은 면에서 교차합니다.");
   else{
    const gap=Math.min(pointSegDist(a.start,b.start,b.end),pointSegDist(a.end,b.start,b.end),pointSegDist(b.start,a.start,a.end),pointSegDist(b.end,a.start,a.end));
@@ -210,12 +210,32 @@ function addRoute(first,second){
  const req=netlib.graph(board,pads(board),unionNets(board)).expected;
  if(req.has(first)&&req.has(second)&&req.get(first)!==req.get(second))return notice("두 패드는 서로 다른 필수 신호("+req.get(first)+" / "+req.get(second)+")입니다. 합선을 방지하도록 배선 연결을 막았습니다.",true);
  if(board.traces.some(t=>(t.a===first&&t.b===second)||(t.a===second&&t.b===first)))return notice("이미 연결된 패드입니다.",true);
- const w=Number($s("#pcbTraceWidth")?.value||0.5);
+ const w=Number($s("#pcbTraceWidth")?.value||0.5),layer=$s("#pcbRoutingLayer")?.value||"F.Cu";
  const id="T"+(Date.now().toString(36))+"-"+Math.floor(Math.random()*100000).toString(36);
- const ok=transact(b=>b.traces.push({id,a:first,b:second,width:traceWidths.has(w)?w:0.5}),first+" ↔ "+second+" 배선을 만들었어요.");
+ const ok=transact(b=>b.traces.push({id,a:first,b:second,width:traceWidths.has(w)?w:0.5,layer:router.LAYERS.includes(layer)?layer:"F.Cu"}),first+" ↔ "+second+" 배선을 만들었어요.");
  if(ok){const r=validate();if(r.issues.length)notice("배선 생성됨 · 간격/교차 문제 "+r.issues.length+"건을 확인해주세요.",true)}
  routing=null;draw();return ok;
 }
+function autoRouteMissing(){
+ const width=Number($s("#pcbTraceWidth")?.value||0.5);
+ const layer=$s("#pcbRoutingLayer")?.value||"F.Cu";
+ const allowVia=Boolean($s("#pcbUseVias")?.checked);
+ const result=router.run(board,{padPos,pads,unionNets,netPlan:netlib.netPlan},{
+  width:traceWidths.has(width)?width:0.5,layer:router.LAYERS.includes(layer)?layer:"F.Cu",
+  allowVia,maxRoutes:24
+ });
+ if(result.success.length){
+  transact(b=>{b.traces=result.board.traces},"자동 배선 초안 "+result.success.length+"개 연결을 추가했어요.");
+ }
+ const message=result.success.length+"개 경로 생성 · "+result.failed.length+"개 실패"+
+  (result.success.length?" · 모든 경로가 공식 DRC를 통과한 것은 아닙니다.":"");
+ const status=$s("#pcbAutoRouteStatus");
+ if(status)status.textContent=message+
+  (result.failed.length?"\n"+result.failed.slice(0,2).map(e=>"• "+e.net+": "+e.reason).join("\n"):"");
+ notice(message,Boolean(result.failed.length));
+ return result;
+}
+
 function setTool(next){
  if(!["move","route","delete"].includes(next))return;
  tool=next;routing=null;mousePoint=null;
@@ -667,6 +687,7 @@ function bind(){
  $s("#pcbRotateButton")?.addEventListener("click",rotate);
  $s("#pcbRemoveButton")?.addEventListener("click",remove);
  $s("#pcbResizeButton")?.addEventListener("click",sizeUpdate);
+ $s("#pcbAutoRouteButton")?.addEventListener("click",autoRouteMissing);
  $s("#pcbCheckButton")?.addEventListener("click",()=>{draw();const r=validate();notice(r.issues.length?r.issues.length+"개 간격·교차 문제를 확인해주세요.":"기초 간격 검사에서 발견된 문제 없음 · 공식 DRC 미실행",Boolean(r.issues.length))});
  $s("#pcbUndoButton")?.addEventListener("click",undo);
  $s("#pcbExportButton")?.addEventListener("click",showExport);
@@ -691,6 +712,6 @@ function bind(){
  });
 }
 document.addEventListener("DOMContentLoaded",bind);
-window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,sizeUpdate,validate,showExport,exportBoard,
+window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,autoRouteMissing,sizeUpdate,validate,showExport,exportBoard,
  test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,updatePartEditor,applyPartProfile,applyPinRole,schem,partlib,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
 })();
