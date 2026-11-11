@@ -210,10 +210,15 @@ function add(kind){
  const done=transact(draft=>draft.components.push({id,kind,x,y,rotation:0}),id+" 부품을 추가했어요.");
  if(done){selected={type:"component",id};setTool("move");draw()}return done;
 }
+function clearMovedRouteSegments(b,id){
+ const prev=b.traces.length;
+ b.traces=b.traces.filter(t=>!t.sections||(!t.a.startsWith(id+":")&&!t.b.startsWith(id+":")));
+ return prev-b.traces.length;
+}
 function rotate(){
  if(!selected||selected.type!=="component")return notice("회전할 부품을 선택해주세요.");
  const id=selected.id;
- transact(b=>{const c=b.components.find(x=>x.id===id);if(c)c.rotation=(c.rotation+90)%360},id+"을 90° 회전했어요.");
+ transact(b=>{const c=b.components.find(x=>x.id===id);if(c){c.rotation=(c.rotation+90)%360;clearMovedRouteSegments(b,id)}},id+"을 90° 회전했어요. 연결된 자동 배선은 재연결해야 할 수 있어요.");
 }
 function remove(){
  if(!selected)return notice("삭제할 항목을 선택해주세요.");
@@ -384,11 +389,13 @@ function applyPartProfile(){
  if(profile&&(!allowed||profile!==allowed.key))return notice("지원되지 않는 부품 패드 규격입니다.",true);
  const old=deep(board),draft=deep(board),target=draft.components.find(x=>x.id===c.id);
  if(profile)target.profile=profile;else delete target.profile;
+ clearMovedRouteSegments(draft,c.id);
  if(!isValidShape(draft))return notice("변경한 부품 규격이 현재 설계와 호환되지 않습니다.",true);
  if(JSON.stringify(draft)===JSON.stringify(old))return notice("이미 선택한 규격입니다.");
  const changed=transact(b=>{
   const p=b.components.find(x=>x.id===c.id);
   if(profile)p.profile=profile;else delete p.profile;
+  clearMovedRouteSegments(b,c.id);
  },"부품 규격 참고 정보 "+c.id+"를 변경했습니다. 실제 KiCad 라이브러리·실물 부품 검증은 필요합니다.");
  if(changed){const issues=validate().issues;if(issues.length)notice("규격 변경 후 간격·연결 문제 "+issues.length+"건을 검토하세요.",true)}
 }
@@ -583,7 +590,8 @@ function onPointerUp(evt){
  if(pointer.moved){
   let prev=JSON.parse(pointer.original);
   revision.push(prev);if(revision.length>40)revision.shift();
-  save();notice(pointer.comp+" 위치를 변경했어요.");
+  const removed=clearMovedRouteSegments(board,pointer.comp);
+  save();notice(pointer.comp+" 위치를 변경했어요."+(removed?" 연결된 자동 배선 "+removed+"개는 무효화했으니 다시 배선하세요.":""));
  }
  pointer=null;draw();
 }
