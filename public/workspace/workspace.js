@@ -149,6 +149,63 @@ function renderTree(){const list=parts.map(part=>'<div class="tree-row'+(selecte
  $$("#assemblyTree [data-visible]").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();const p=current(),id=el.dataset.visible;p.hiddenParts=p.hiddenParts.includes(id)?p.hiddenParts.filter(x=>x!==id):p.hiddenParts.concat(id);persist();renderTree();scheduleDraw()}))
 }
 function selectPart(){renderTree();const p=parts.find(x=>x.id===selectedPart);$("#selectedPartName").textContent=p?p.label:"No selection";scheduleDraw()}
+
+const KO_MODE_KEY="robotforge.uiMode.v2";
+const KO_WELCOME_KEY="robotforge.welcomeSeen.v2";
+const beginnerParamLabels={
+ link1:["첫 번째 팔 길이","로봇 몸통에서 팔꿈치까지의 길이"],
+ link2:["두 번째 팔 길이","팔꿈치에서 손끝 방향까지의 길이"],
+ angle1:["첫 번째 관절 각도","몸통 쪽 관절이 돌아가는 각도"],
+ angle2:["두 번째 관절 각도","팔꿈치가 구부러지는 각도"],
+ base:["받침대 너비","바닥에 닿는 몸통의 크기"],
+ width:["팔 부품의 폭","팔이 옆으로 얼마나 넓은지"],
+ thickness:["팔 부품의 두께","팔 부품의 두께"],
+ payload:["끝에 다는 무게","팔 끝에 매달 물건의 질량 (g)"],
+ length:["가로 길이","부품의 긴 쪽 길이"],
+ height:["높이","부품의 위아래 높이"]
+};
+const simpleArmKeys=new Set(["link1","link2","angle1","angle2"]);
+function safeLocalGet(key){try{return localStorage.getItem(key)}catch{return null}}
+function safeLocalSet(key,value){try{localStorage.setItem(key,value)}catch{}}
+function setUiMode(mode,persistMode=true){
+ const beginner=mode!=="expert";
+ document.body.classList.toggle("beginner-mode",beginner);
+ document.body.classList.toggle("expert-mode",!beginner);
+ for(const [id,on] of [["beginnerModeButton",beginner],["expertModeButton",!beginner]]){
+   const el=$("#"+id);if(!el)continue;el.classList.toggle("active",on);el.setAttribute("aria-pressed",String(on));
+ }
+ if(persistMode)safeLocalSet(KO_MODE_KEY,beginner?"beginner":"expert");
+ if(beginner&&["electronics","wiring","code","bom"].includes(panel))activatePanel("cad");
+ if(panel!=="cad")renderStage();
+}
+function finishWelcome(){safeLocalSet(KO_WELCOME_KEY,"yes");if($("#welcomeDialog").open)$("#welcomeDialog").close()}
+function showWelcome(){if(!$("#welcomeDialog").open)$("#welcomeDialog").showModal()}
+function initBeginnerUX(){
+ $("#beginnerModeButton").addEventListener("click",()=>setUiMode("beginner"));
+ $("#expertModeButton").addEventListener("click",()=>setUiMode("expert"));
+ $("#helpButton").addEventListener("click",showWelcome);
+ $("#beginnerSeeHow").addEventListener("click",showWelcome);
+ $("#beginnerChooseTemplate").addEventListener("click",showWelcome);
+ $("#dismissBeginnerHelp").addEventListener("click",()=>{$("#beginnerHelp").hidden=true;safeLocalSet("robotforge.guideHidden.v2","yes")});
+ $("#closeWelcomeButton").addEventListener("click",finishWelcome);
+ $("#skipWelcomeButton").addEventListener("click",finishWelcome);
+ $("#welcomeExpertButton").addEventListener("click",()=>{setUiMode("expert");finishWelcome()});
+ $("[data-start-template]").forEach(button=>button.addEventListener("click",()=>{
+   setUiMode("beginner");
+   const model=button.dataset.startTemplate;
+   if(limits[model])setTemplate(model);
+   activatePanel("cad");
+   $("#beginnerHelp").hidden=false;
+   $("#templateSelect").focus();
+   finishWelcome();
+ }));
+ $("#welcomeDialog").addEventListener("close",()=>safeLocalSet(KO_WELCOME_KEY,"yes"));
+ $("#welcomeDialog").addEventListener("cancel",()=>safeLocalSet(KO_WELCOME_KEY,"yes"));
+ if(safeLocalGet("robotforge.guideHidden.v2")==="yes")$("#beginnerHelp").hidden=true;
+ setUiMode(safeLocalGet(KO_MODE_KEY)==="expert"?"expert":"beginner",false);
+ if(safeLocalGet(KO_WELCOME_KEY)!=="yes")requestAnimationFrame(showWelcome);
+}
+
 function renderSummary(){
  const p=current();$("#projectName").textContent=p.name;$("#documentTabName").textContent=p.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,30)+".rfscene";
  $("#componentCount").textContent=String(parts.length);$("#summaryType").textContent=p.model==="arm"?"2-DOF arm":p.model==="plate"?"Plate":"Block";
@@ -156,8 +213,8 @@ function renderSummary(){
  $("#templateSelect").value=p.model;$("#materialSelect").value=p.material;
  $("#volumeEstimate").textContent=fmt(totalVolume()/1000,2)+" cm³";
  $("#massEstimate").textContent=fmt(massFor(totalVolume(),p.material)*1000,1)+" g";
- $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>'<div class="param-row"><div class="param-head"><label for="param-'+key+'">'+esc(label)+'</label><span class="param-unit">'+unit+'</span></div><input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'"></div>').join("");
- $("#viewportTitle").textContent=p.model==="arm"?"ASSEMBLY / SHADED VIEW":"PART / SHADED VIEW";
+ $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>{const ko=beginnerParamLabels[key]||[label,""];const adv=p.model==="arm"&&!simpleArmKeys.has(key)?" advanced-parameter":"";return '<div class="param-row'+adv+'"><div class="param-head"><label for="param-'+key+'">'+esc(ko[0])+'</label><span class="param-unit">'+unit+'</span></div><input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'"><small class="param-help">'+esc(ko[1])+'</small></div>'}).join("");
+ $("#viewportTitle").textContent=p.model==="arm"?"3D 로봇팔 미리보기":"3D 부품 미리보기";
 }
 function refresh(){rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
 function editParams(){
@@ -172,7 +229,7 @@ function setTemplate(model){
 }
 function activatePanel(name){
  panel=name;$$("#navList .nav-option").forEach(x=>x.classList.toggle("active",x.dataset.panel===panel));
- const cad=name==="cad";$("#modelCanvas").hidden=!cad;$("#nonCadStage").hidden=cad;$("#viewportTitle").textContent=cad?"ASSEMBLY / SHADED VIEW":name.toUpperCase()+" / ENGINEERING";
+ const cad=name==="cad";$("#modelCanvas").hidden=!cad;$("#nonCadStage").hidden=cad;$("#viewportTitle").textContent=cad?"3D 모델 보기":({simulation:"힘·움직임 계산",manufacturing:"설계 파일 받기",electronics:"전자회로 참고",wiring:"배선 참고",code:"코드",bom:"부품·재료 목록"}[name]||name);
  if(!cad)renderStage();else scheduleDraw();
  $("#statusGeometry").textContent=cad?"MESH VIEWER":"REFERENCE / DRAFT";
  $("#leftSidebar").classList.remove("mobile-visible");log("VIEW","Opened "+name+" studio");
@@ -182,6 +239,21 @@ function pcbDiagram(){return '<svg class="svg-diagram" viewBox="0 0 620 210" rol
 function renderStage(){
  const p=current(),n=p.params,loads=sampleLoads();let html='';
  const title=(tag,heading,sub)=>'<div class="stage-header">'+tag+'</div><h2 class="stage-title">'+heading+'</h2><p class="stage-subtitle">'+sub+'</p>';
+
+ if(document.body.classList.contains("beginner-mode")&&(panel==="simulation"||panel==="manufacturing")){
+  if(panel==="simulation"){
+    html=title("STEP 2 / 움직임 점검","팔이 물건을 들 수 있을까요?","관절에 걸리는 힘을 아주 단순하게 예상하는 체험 계산입니다. 실제 모터가 버틸지 판단하는 근거로 사용하면 안 돼요.");
+    if(loads){
+      html+='<div class="stage-cards"><div class="stage-card"><div class="small-heading">첫 번째 관절 / 중력 토크 추정</div><h3>'+fmt(Math.abs(loads.T1),3)+' N·m</h3><p>팔 안쪽 관절을 붙잡는 데 필요한 힘의 회전 효과를 추정했어요.</p></div><div class="stage-card"><div class="small-heading">두 번째 관절 / 중력 토크 추정</div><h3>'+fmt(Math.abs(loads.T2),3)+' N·m</h3><p>팔꿈치에 걸리는 중력의 회전 효과를 추정했어요.</p></div><div class="stage-card stage-full"><div class="small-heading">반드시 확인해 주세요</div><div class="warn-box">수직 평면에서 정지한 팔을 가정한 단순 계산이에요. 모터 무게·마찰·가속·충격·안전 여유는 반영되지 않았고, 실제 구동 시험도 아닙니다.</div></div></div>';
+    }else html+='<div class="stage-cards"><div class="stage-card stage-full"><h3>로봇팔을 먼저 선택하세요</h3><p>오른쪽의 모델 선택 메뉴에서 로봇팔을 고르면 계산할 수 있어요.</p></div></div>';
+  }else{
+    html=title("STEP 3 / 완성한 모델 보관하기","파일로 저장해 볼까요?","3D 모양은 STL 파일로, 나중에 다시 편집할 치수는 JSON 백업으로 저장할 수 있어요.");
+    html+='<div class="stage-cards"><div class="stage-card"><div class="small-heading">3D 파일</div><h3>STL 다운로드</h3><p>삼각형으로 이루어진 3D 모양이에요. 부품 간 간섭이나 강도 검사는 하지 않았어요.</p><button class="stage-action" data-stageexport="stl">↓ STL 파일 받기</button></div><div class="stage-card"><div class="small-heading">내 프로젝트 백업</div><h3>JSON 다운로드</h3><p>길이·각도·재료를 저장해 두었다가 이 사이트에서 다시 불러올 수 있어요.</p><button class="stage-action" data-stageexport="json">↓ 백업 파일 받기</button></div><div class="stage-card stage-full"><div class="warn-box">이 파일은 실제 제조 가능 여부를 검증하지 않은 미리보기예요. 공장에 바로 발주하지 마세요.</div></div></div>';
+  }
+  $("#nonCadStage").innerHTML=html;
+  $("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
+  return;
+ }
  if(panel==="electronics"){
   html=title("ELECTRONICS STUDIO / REFERENCE ONLY","Electrical architecture","Conceptual AX-18A TTL connections. No KiCad engine or official ERC is running on this public static site.")+'<div class="stage-cards"><div class="stage-card stage-full"><div class="small-heading">CONCEPT / TTL NETWORK</div>'+pcbDiagram()+'</div><div class="stage-card"><div class="small-heading">ASSUMPTIONS</div><h3>12 V motor rail</h3><p>Separate regulated control power and servo power. Verify peak current, fusing and protection before creating any real board.</p></div><div class="stage-card"><div class="small-heading">VALIDATION STATUS</div><h3>NOT VERIFIED</h3><p>Actual schematics, footprints, routing, ERC and DRC require local KiCad and engineering review.</p></div></div>';
  }else if(panel==="wiring"){
@@ -291,5 +363,5 @@ function bindUI(){
  resizeEl("leftResizer","left");resizeEl("rightResizer","right");
  if(window.ResizeObserver)new ResizeObserver(scheduleDraw).observe($("#canvasWrap"));window.addEventListener("resize",scheduleDraw);
 }
-function init(){load();persist();bindUI();refresh();$("#eventLog").hidden=false;$("#checkList").hidden=true;log("SYSTEM","Local workspace ready. No cloud CAD backend connected.");log("GEOMETRY","Loaded "+parts.length+" procedural mesh components");scheduleDraw()}
+function init(){load();persist();bindUI();initBeginnerUX();refresh();$("#eventLog").hidden=false;$("#checkList").hidden=true;log("SYSTEM","Local workspace ready. No cloud CAD backend connected.");log("GEOMETRY","Loaded "+parts.length+" procedural mesh components");scheduleDraw()}
 document.addEventListener("DOMContentLoaded",init);
