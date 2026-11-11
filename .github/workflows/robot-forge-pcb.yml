@@ -1,0 +1,79 @@
+name: Robot Forge PCB - logic and KiCad draft checks
+
+on:
+  push:
+    branches:
+      - robot-forge-v18-render-preview
+    paths:
+      - 'public/workspace/pcb-studio.js'
+      - 'public/workspace/pcb-netlist.js'
+      - 'scripts/test-pcb-v26.cjs'
+      - '.github/workflows/robot-forge-pcb.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  logical-netlist-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check browser PCB netlist, shorts and open connections
+        run: node scripts/test-pcb-v26.cjs
+
+  kicad-draft-parse-and-drc:
+    needs: logical-netlist-tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install KiCad 9 CLI from official KiCad Ubuntu PPA
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository --yes ppa:kicad/kicad-9.0-releases
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends kicad
+          kicad-cli version
+
+      - name: Generate representative .kicad_pcb from browser exporter
+        run: |
+          mkdir -p "$RUNNER_TEMP/robot-forge-pcb"
+          OUTPUT_DIR="$RUNNER_TEMP/robot-forge-pcb" node scripts/test-pcb-v26.cjs
+
+      - name: Verify KiCad can parse and render the draft
+        run: |
+          mkdir -p "$RUNNER_TEMP/robot-forge-pcb/svg"
+          kicad-cli pcb export svg \
+            --layers F.Cu,Edge.Cuts \
+            --output "$RUNNER_TEMP/robot-forge-pcb/svg" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
+
+      - name: Run official KiCad PCB DRC (not schematic ERC)
+        run: |
+          set +e
+          kicad-cli pcb drc \
+            --format json \
+            --severity-all \
+            --exit-code-violations \
+            -o "$RUNNER_TEMP/robot-forge-pcb/official-drc.json" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
+          exit_code=$?
+          set -e
+          printf 'KiCad DRC exit code: %s\n' "$exit_code" | tee "$RUNNER_TEMP/robot-forge-pcb/drc-status.txt"
+          if [ "$exit_code" -ne 0 ]; then
+            echo "PCB DRC found violations or could not process the draft."
+            exit "$exit_code"
+          fi
+
+      - name: Upload generated draft and DRC report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-forge-kicad-draft-validation
+          path: ${{ runner.temp }}/robot-forge-pcb
+          retention-days: 7
+          if-no-files-found: warn
