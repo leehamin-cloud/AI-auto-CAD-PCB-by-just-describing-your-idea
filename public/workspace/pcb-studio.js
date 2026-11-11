@@ -432,7 +432,7 @@ function onSvgLeave(){if(routing){mousePoint=null;draw()}}
 function uid(seed){let k=0;for(let i=0;i<seed.length;i++)k=(Math.imul(k,31)+seed.charCodeAt(i))>>>0;const a=k.toString(16).padStart(8,"0");return a+"-a12b-4e3f-8d91-"+(k*17>>>0).toString(16).padStart(8,"0")+"0000"}
 function kicadDraft(b=board){
  // Not verified by KiCad CLI: this is a starter file only, not manufacturing output.
- const connections=unionNets(b),q=s=>'"'+String(s).replace(/["\\]/g,"")+'"',f=n=>Number(n).toFixed(4),line=[];
+ const connections=netlib.exportGraph(b,pads(b),unionNets(b)),q=s=>'"'+String(s).replace(/["\\]/g,"")+'"',f=n=>Number(n).toFixed(4),line=[];
  const getNet=ref=>connections.nets.get(ref)||0,netName=n=>n?connections.netNames[n-1]?.name||"":"";
  line.push('(kicad_pcb (version 20241229) (generator "robot_forge") (generator_version "9.0")',
   ' (general (thickness 1.6) (legacy_teardrops no))',' (paper "A4")',
@@ -454,7 +454,7 @@ function kicadDraft(b=board){
   line.push(' )');
  }
  for(const t of trackLines(b)){
-  const net=getNet(t.a),p=t.start,r=t.end;
+  const net=connections.traceNets.get(t.id)||0,p=t.start,r=t.end;
   line.push(' (segment (start '+f(p.x)+' '+f(p.y)+') (end '+f(r.x)+' '+f(r.y)+') (width '+f(t.width)+') (layer "F.Cu") (net '+net+') (uuid "'+uid(t.id)+'"))');
  }
  line.push(')');
@@ -475,6 +475,7 @@ function exportBoard(type){
  let data="",mime="text/plain",extension=type;
  if(type==="json"){data=JSON.stringify({...state,disclaimer:"Local draft; not manufacturer-validated; no schematic connectivity validation"},null,2);mime="application/json"}
  else if(type==="svg"){data=svgDocument();mime="image/svg+xml"}
+ else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
  else if(type==="kicad"){data=kicadDraft();extension="kicad_pcb"}
  else return;
  const blob=new Blob([data],{type:mime+";charset=utf-8"}),url=URL.createObjectURL(blob);
@@ -554,5 +555,5 @@ function bind(){
 }
 document.addEventListener("DOMContentLoaded",bind);
 window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,sizeUpdate,validate,showExport,exportBoard,
- test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
+ test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
 })();
