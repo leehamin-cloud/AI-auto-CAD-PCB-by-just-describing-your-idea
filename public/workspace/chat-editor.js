@@ -25,7 +25,7 @@
     length:[/(?:가로(?:\s*길이)?|전체\s*길이|길이|length)\s*(?:를|을|은|로|:|=|to)?\s*(-?\d+(?:\.\d+)?)/i]
   };
   const relativeKeys=[
-    {key:"hole_diameter",token:/(?:구멍|홀)\s*(?:의\s*)?(?:지름|크기|직경)/i},
+    {key:"hole_diameter",token:/(?:구멍|홀)\s*(?:의\s*)?(?:지름|크기|직경)|(?:^|\s)(?:지름|직경)/i},
     {key:"link1",token:/(?:첫\s*번째\s*팔|첫\s*팔|첫\s*링크|link\s*1)/i},
     {key:"link2",token:/(?:두\s*번째\s*팔|둘째\s*팔|두\s*팔|link\s*2)/i},
     {key:"angle1",token:/(?:관절\s*1|첫\s*관절|angle\s*1)/i},
@@ -62,6 +62,13 @@
     const input=normalize(String(text||"").slice(0,1500)),lower=input.toLowerCase();
     const state=snapshot||{model:current().model,params:{...current().params}};
     const model=modelFromText(lower,state.model);
+    // Never apply arm-specific requests to unrelated dimensions of a different model.
+    if(model!=="arm"&&/(?:첫\s*번째\s*팔|두\s*번째\s*팔|첫\s*링크|둘째\s*링크|관절\s*[12]|link\s*[12]|joint\s*[12])/i.test(lower)){
+      return {kind:"error",model,changes:{},note:"현재는 "+modelLabels[model]+" 모델입니다. 로봇팔 길이·관절을 바꾸려면 ‘로봇팔 만들기’를 먼저 입력해주세요."};
+    }
+    if(model!=="plate"&&/(?:구멍|홀)\s*(?:\d|지름|크기|직경|개수)/i.test(lower)){
+      return {kind:"error",model,changes:{},note:"현재는 "+modelLabels[model]+" 모델입니다. 구멍을 편집하려면 ‘구멍판 만들기’를 먼저 입력해주세요."};
+    }
     const oldParams=model===state.model?state.params:defaults[model];
     const changes={};
     const schema=limits[model];
@@ -108,6 +115,10 @@
             break;
           }
         }
+      }
+      if(model==="plate"&&!Object.hasOwn(changes,"hole_diameter")){
+        const bareDiameter=lower.match(/(?:^|\s)(?:지름|직경)\s*(?:을|를|은|이|로|:|=)?\s*(-?\d+(?:\.\d+)?)/i);
+        if(bareDiameter)changes.hole_diameter=Number(bareDiameter[1]);
       }
       if(Object.hasOwn(changes,"hole_diameter")&&model==="shaft")delete changes.hole_diameter;
     }
