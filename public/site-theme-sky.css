@@ -1,0 +1,94 @@
+/* Robot Forge Public Site • Light Sky v2.2 */
+:root{color-scheme:light;--bg:#f5faff;--bg2:#eff8ff;--card:#fff;--line:#dcecf8;--text:#1a354c;--muted:#738da2;--green:#299cde;--green2:#177cb9;--panel:#eaf6ff}
+html{background:#f5faff}
+body{background:#f5faff;color:#213f58}
+.notice{background:#e4f4ff;border-bottom:1px solid #cce9fb;color:#477d9f}
+.nav{background:transparent}
+.brand{color:#153c5a}
+.brand i{background:#3aa9eb}
+.brand span{color:#2089ca}
+.navlinks a{color:#718da3}
+.navlinks a:hover,.navlinks a.active{color:#1688ca}
+.navbtn{border:1px solid #a7d7f5;color:#2584bf;background:#edf9ff}
+.navbtn:hover{background:#def2ff}
+.burger{background:#fff;border-color:#c7e3f5;color:#258bc2}
+.hero{background:radial-gradient(ellipse at 85% 20%,#d5efff 0%,transparent 55%),linear-gradient(180deg,#f5faff,#eff8ff);color:#193b5c}
+.hero h1 em{color:#249de2}
+.eyebrow{color:#268dc6}
+.eyebrow small{color:#7a9bad}
+.lead{color:#6a849b}
+.primary{background:#2ca4e8;color:#fff;box-shadow:0 10px 25px #4ba9e129}
+.primary:hover{background:#1487c9}
+.secondary{color:#2e86ba}
+.secondary:hover{color:#1674ac}
+.small{color:#839ab0}
+.stats{border-color:#d4e8f6}
+.stat b{color:#204665}
+.stat span{color:#7897aa}
+.mock{background:#f7fcff;border:1px solid #b6d9f0;box-shadow:0 25px 70px #5387b52b}
+.mockhead{background:#e4f4ff;border-color:#b8ddf7}
+.dot{background:#95b8d4}
+.mockhead small{color:#3e7ca4}
+.mockbody{background:#f4faff}
+.mocksidebar,.mockright{background:#f3f9ff;border-color:#d8eaf5}
+.mocklabel{color:#7f9aaf}
+.item{color:#6588a1}
+.item.on{background:#daf0ff;color:#177dbd}
+.canvas{background:radial-gradient(ellipse at center,#fff,#e7f6ff 68%)}
+.canvas::before{background-image:linear-gradient(#54a3d40b 1px,transparent 1px),linear-gradient(90deg,#54a3d40b 1px,transparent 1px)}
+.mval{color:#7893a9;border-color:#d3e8f5}
+.mval strong{color:#2c5472}
+.mval b{color:#197fc4}
+.section{border-color:#dceaf5}
+.section h2{color:#173d5f}
+.sectionhead p{color:#758fa4}
+.card{background:#fff;border-color:#dbeaf6;box-shadow:0 8px 30px #5d95bf0d}
+.card .glyph{color:#2f9ddd}
+.card h3{color:#244b69}
+.card p{color:#7290a5}
+.chip{color:#278ac5}
+.band{background:linear-gradient(130deg,#e8f5ff,#f8fcff)}
+.band h2{color:#1d4567}
+.pipeline{background:#fff;border-color:#cfe4f5;box-shadow:0 15px 40px #5196c017}
+.step{border-color:#e2edf6}
+.step b{color:#2594d0}
+.step strong{color:#294f6e}
+.step p{color:#7a95a9}
+.pagehero{background:radial-gradient(ellipse at 90% 0,#d5eeff 0,transparent 52%)}
+.pagehero h1{color:#153e60}
+.pagehero p{color:#718aa1}
+.content{background:#f7fbff}
+.panel{background:#fff;border-color:#d5e7f5;box-shadow:0 8px 28px #5b99c10c}
+.panel h2,.panel h3{color:#2b5878}
+.muted{color:#7390a5}
+.field{color:#617f96}
+.field input{background:#f7fbff;border-color:#d2e7f6;color:#2c5977}
+.field input::placeholder{color:#9aaeba}
+.field input:disabled{background:#eef5fb}
+.pricing .price{background:#fff;border-color:#d8e9f6;box-shadow:0 9px 22px #5a9dca10}
+.price.featured{border-color:#68b7ea;box-shadow:0 0 0 1px #7dccf8,0 12px 30px #4b98d215}
+.price h3{color:#1d4a6f}
+.price b{color:#2588c8}
+.price li{color:#7690a6}
+.lineitem{border-color:#dfebf5}
+.lineitem h3,.lineitem strong{color:#2d5677}
+.lineitem p{color:#728ea5}
+.lineitem small{color:#258ed0}
+.footer{background:#fff;border-color:#dceaf7;color:#7a98b0}
+.footer .brand{color:#204e70}
+code{background:#e5f3ff;color:#207eb8}
+.work{background:#f9fcff;border-color:#c9e4f7;box-shadow:0 12px 36px #408cb41a}
+.workside,.workinfo{background:#f3faff;border-color:#d7e8f5}
+.worktitle{color:#7194a9}
+.worktab{color:#6e8ca2}
+.worktab.sel{background:#daf0ff;color:#1284c6}
+.worktab:hover{background:#e6f5ff}
+.workmain{background:#f4f9fe}
+.viewhead{border-color:#d9e9f5;color:#718aa0}
+.viewcenter{background-image:linear-gradient(#2c92cb0a 1px,transparent 1px),linear-gradient(90deg,#2c92cb0a 1px,transparent 1px)}
+.viewfoot{border-color:#d9e9f5;color:#7fa0b4}
+.workinfo .panel{background:#fff}
+.workinfo label{color:#7593a6}
+.workinfo .field input{background:#edf8ff}
+.warn{background:#fff8e8;border-color:#f1dab1;color:#9d793c}
+@media(max-width:700px){.navlinks{background:#fff;border-color:#d4e9f8;box-shadow:0 14px 40px #447d9e20}.navlinks a{color:#486f89}}
