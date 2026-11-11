@@ -363,6 +363,32 @@ test("v3.0: valid two-sided via trace serializes segments and through-via",()=>{
  assert.equal((content.match(/\(segment /g)||[]).length,2);
 });
 
+
+test("v3.0: router uses via to cross a front-only barrier instead of shorting it",()=>{
+ const pts={"J1:1":{x:15,y:35},"J2:1":{x:85,y:35},"J3:1":{x:50,y:2},"J4:1":{x:50,y:68}};
+ const ctx={
+  padPos:r=>pts[r],
+  pads:()=>Object.entries(pts).map(([ref,p])=>({ref,...p})),
+  netPlan:()=>[{name:"DATA",pins:["J1:1","J2:1"]}],
+  unionNets:()=>({netNames:[]})
+ };
+ const sample={width:100,height:70,components:[],traces:[{id:"front-barrier",a:"J3:1",b:"J4:1",layer:"F.Cu",width:1}]};
+ const front=routeTool.candidate(sample,"J1:1","J2:1",ctx,{layer:"F.Cu",allowVia:false,id:"blocked"});
+ const both=routeTool.candidate(sample,"J1:1","J2:1",ctx,{layer:"F.Cu",allowVia:true,id:"switch"});
+ assert.equal(front.ok,false);
+ assert.equal(both.ok,true,JSON.stringify(both));
+ assert.equal(both.trace.vias.length,1);
+ assert.deepEqual(both.trace.sections.map(x=>x.layer),["F.Cu","B.Cu"]);
+});
+test("v3.0: invalid via size is rejected before persistence",()=>{
+ const b=pcb.test.starter(),first=pcb.test.padPos("J1:1",b),second=pcb.test.padPos("U1:1",b);
+ b.traces=[{id:"invalid-via",a:"J1:1",b:"U1:1",width:0.5,layer:"F.Cu",
+  sections:[{layer:"F.Cu",points:[first,{x:20,y:24}]},
+            {layer:"B.Cu",points:[{x:20,y:24},second]}],
+  vias:[{x:20,y:24,diameter:5.0,drill:0.6}]}];
+ assert.equal(pcb.test.isValidShape(b),false);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
