@@ -39,7 +39,7 @@ function load(){
  try{const data=JSON.parse(localStorage.getItem(KEY)||"null");if(data&&Array.isArray(data.projects)){projects=data.projects.slice(0,30).map(safeProject);for(let i=0;i<projects.length;i++){const saved=data.projects[i];const p=projects[i];if(saved?.id&&typeof saved.id==="string")p.id=saved.id.slice(0,90);if(Array.isArray(saved?.history)){const cleaned=[];for(const h of saved.history.slice(-30)){try{const v=safeProject(h);cleaned.push({model:v.model,params:v.params,material:v.material,label:String(h.label||"Revision").slice(0,90),time:Number(h.time)||Date.now()})}catch{}}if(cleaned.length){p.history=cleaned;p.cursor=Math.max(0,Math.min(Number(saved.cursor)||0,cleaned.length-1));const snap=p.history[p.cursor];p.model=snap.model;p.params=clone(snap.params);p.material=snap.material;}}p.hiddenParts=Array.isArray(saved?.hiddenParts)?saved.hiddenParts.filter(x=>typeof x==="string").slice(0,50):[];}
  activeId=projects.some(p=>p.id===data.activeId)?data.activeId:projects[0]?.id;
  }}catch(e){console.warn("Local project cache reset",e.message)}
- if(!projects.length){const p=makeProject("Research Arm Alpha");projects=[p];activeId=p.id}
+ if(!projects.length){const p=makeProject("나의 첫 로봇");projects=[p];activeId=p.id}
 }
 function current(){return projects.find(p=>p.id===activeId)||projects[0]}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify({activeId,projects}));$("#saveState").textContent="● Saved locally";return true}catch(e){$("#saveState").textContent="● Storage blocked";notify("Browser storage is unavailable. Export a JSON backup.",true);return false}}
@@ -148,7 +148,7 @@ function renderTree(){const list=parts.map(part=>'<div class="tree-row'+(selecte
  $$("#assemblyTree [data-part]").forEach(el=>el.addEventListener("click",ev=>{if(ev.target.closest("[data-visible]"))return;selectedPart=el.dataset.part;selectPart()}));
  $$("#assemblyTree [data-visible]").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();const p=current(),id=el.dataset.visible;p.hiddenParts=p.hiddenParts.includes(id)?p.hiddenParts.filter(x=>x!==id):p.hiddenParts.concat(id);persist();renderTree();scheduleDraw()}))
 }
-function selectPart(){renderTree();const p=parts.find(x=>x.id===selectedPart);$("#selectedPartName").textContent=p?p.label:"No selection";scheduleDraw()}
+function selectPart(){renderTree();const p=parts.find(x=>x.id===selectedPart);$("#selectedPartName").textContent=p?p.label:"선택한 부품 없음";scheduleDraw()}
 
 const KO_MODE_KEY="robotforge.uiMode.v2";
 const KO_WELCOME_KEY="robotforge.welcomeSeen.v2";
@@ -196,6 +196,7 @@ function initBeginnerUX(){
    if(limits[model])setTemplate(model);
    activatePanel("cad");
    $("#beginnerHelp").hidden=false;
+   const propertyTab=$(".inspector-tab[data-inspector=properties]");if(propertyTab)propertyTab.click();
    $("#templateSelect").focus();
    finishWelcome();
  }));
@@ -209,7 +210,7 @@ function initBeginnerUX(){
 function renderSummary(){
  const p=current();$("#projectName").textContent=p.name;$("#documentTabName").textContent=p.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,30)+".rfscene";
  $("#componentCount").textContent=String(parts.length);$("#summaryType").textContent=p.model==="arm"?"2-DOF arm":p.model==="plate"?"Plate":"Block";
- $("#modelTitle").textContent=modelNames[p.model];$("#modelSubtitle").textContent=modelSubtitles[p.model];
+ $("#modelTitle").textContent=({arm:"움직이는 로봇팔",plate:"평평한 판",block:"네모 블록"}[p.model]||modelNames[p.model]);$("#modelSubtitle").textContent=({arm:"팔 길이와 관절 각도를 조절해요",plate:"가로·세로·두께를 바꿔보세요",block:"가로·세로·높이를 바꿔보세요"}[p.model]||modelSubtitles[p.model]);
  $("#templateSelect").value=p.model;$("#materialSelect").value=p.material;
  $("#volumeEstimate").textContent=fmt(totalVolume()/1000,2)+" cm³";
  $("#massEstimate").textContent=fmt(massFor(totalVolume(),p.material)*1000,1)+" g";
