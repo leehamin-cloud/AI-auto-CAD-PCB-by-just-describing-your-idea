@@ -7,8 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
-const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic;
-if(!partlib||!schem)throw Error("PCB catalog and schematic modules are required");
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic;
+if(!partlib||!schem||!kicadSchematic)throw Error("PCB catalog, schematic and KiCad export modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -563,6 +563,7 @@ function exportBoard(type){
  else if(type==="schematic-svg"){data=schem.drawing(board);mime="image/svg+xml";extension="schematic.svg"}
  else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
  else if(type==="kicad"){data=kicadDraft();extension="kicad_pcb"}
+ else if(type==="kicad-sch"){try{data=kicadSchematic.generate(board)}catch(e){notice("KiCad 회로도 내보내기 중단: "+(e?.message||String(e)),true);return null}extension="kicad_sch"}
  else return;
  const blob=new Blob([data],{type:mime+";charset=utf-8"}),url=URL.createObjectURL(blob);
  const a=document.createElement("a");a.href=url;a.download="robot-forge-pcb-draft."+extension;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
