@@ -220,3 +220,22 @@ body.beginner-mode .right-sidebar .inspector-tab.active{color:#1384c7}
 @media(max-width:1000px){.ai-chat-shell{min-height:620px}.ai-canvas-entry{right:60px}}
 @media(max-width:680px){.ai-chat-shell{min-height:600px}.ai-canvas-entry{top:53px;right:8px;padding:9px 11px;font-size:10px}.chat-history{min-height:190px}.chat-prompt-section{padding:10px 12px}.chat-compose{padding:12px}.ai-chat-head{padding:15px 12px 8px}.ai-chat-tools{padding:8px 12px}.chat-engine-note{margin:4px 12px 11px}.chat-compose-bottom>span{font-size:8px}.chat-compose-bottom>.apply-button{min-width:105px}.viewport-label{top:10px;left:12px}.beginner-help{bottom:40px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* Optional privately configured server AI mode. Collapsed by default. */
+.ai-provider-options{border-top:1px solid #eaf2f9;background:#f9fcff}
+.ai-provider-options summary{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:12px 16px;cursor:pointer;color:#497d9e;font-size:11px;font-weight:750;list-style:none}
+.ai-provider-options summary::-webkit-details-marker{display:none}
+.ai-provider-options summary:hover{background:#eff8ff}
+.ai-provider-options summary span:first-child{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ai-provider-options summary small{padding:4px 6px;border-radius:6px;background:#eef5fb;color:#8ca3b6;font-weight:700;font-size:9px}
+.ai-provider-options summary small.ready{background:#e0f4ff;color:#1688c4}
+.ai-provider-options .provider-chevron{font-size:13px;color:#8faabe}
+.ai-provider-options[open] .provider-chevron{transform:rotate(180deg)}
+.ai-provider-body{padding:6px 16px 15px;background:#f9fcff}
+.ai-provider-toggle{display:flex;gap:9px;align-items:center;margin:7px 0 16px;font-size:11px;color:#486e89}
+.ai-provider-toggle input{accent-color:#2299dd;width:15px;height:15px}
+.ai-provider-label{display:block;font-weight:700;color:#5f8096;font-size:10px;margin-bottom:7px}
+.ai-provider-body input[type=password]{width:100%;border:1px solid #c8dfef;border-radius:8px;background:white;color:#214f6e;font:inherit;font-size:12px;padding:11px}
+.ai-provider-body input[type=password]:disabled{background:#f1f5f8;color:#a1b1bc}
+.ai-provider-body p{font-size:10px;color:#8ba3b5;line-height:1.7;margin:11px 0 0}
+.chat-local-tag.server{background:#dbf4ff;color:#0874b2;border-color:#8ad2fa}
