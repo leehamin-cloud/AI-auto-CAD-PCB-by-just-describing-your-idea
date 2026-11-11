@@ -322,7 +322,12 @@ function updatePartEditor(){
   }
   if(changed)footprint.value=c.profile||"";
  }
- if(note)note.textContent=partlib.description(c);
+ if(note){
+  const source=precisePads.verify(c);
+  note.textContent=source.exactPadDefinitions?
+   partlib.get(c).footprint+" · KiCad 원본의 패드 번호·크기·모양·드릴 규격 반영. 전체 풋프린트·실물 부품 검증은 필요합니다.":
+   partlib.description(c);
+ }
  if(rolePin){
   const pins=partlib.pins(c),changed=rolePin.dataset?.editing!==c.id;
   if(changed){
