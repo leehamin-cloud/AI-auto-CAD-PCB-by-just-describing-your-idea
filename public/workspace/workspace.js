@@ -229,7 +229,7 @@ function setTemplate(model){
 }
 function activatePanel(name){
  panel=name;$$("#navList .nav-option").forEach(x=>x.classList.toggle("active",x.dataset.panel===panel));
- const cad=name==="cad";$("#modelCanvas").hidden=!cad;$("#nonCadStage").hidden=cad;$("#viewportTitle").textContent=cad?"3D 모델 보기":({simulation:"힘·움직임 계산",manufacturing:"설계 파일 받기",electronics:"전자회로 참고",wiring:"배선 참고",code:"코드",bom:"부품·재료 목록"}[name]||name);
+ const cad=name==="cad";$("#modelCanvas").hidden=!cad;$("#nonCadStage").hidden=cad;if($("#beginnerHelp"))$("#beginnerHelp").hidden=!cad||safeLocalGet("robotforge.guideHidden.v2")==="yes";$("#viewportTitle").textContent=cad?"3D 모델 보기":({simulation:"힘·움직임 계산",manufacturing:"설계 파일 받기",electronics:"전자회로 참고",wiring:"배선 참고",code:"코드",bom:"부품·재료 목록"}[name]||name);
  if(!cad)renderStage();else scheduleDraw();
  $("#statusGeometry").textContent=cad?"MESH VIEWER":"REFERENCE / DRAFT";
  $("#leftSidebar").classList.remove("mobile-visible");log("VIEW","Opened "+name+" studio");
