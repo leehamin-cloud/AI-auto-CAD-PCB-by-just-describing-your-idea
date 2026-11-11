@@ -162,3 +162,41 @@ body.pcb-mode .pcb-canvas-top .pcb-view-toggle{margin-top:-2px}
 .pcb-route-settings summary::after{content:"⌄";font-size:14px;color:#76a4c0}
 .pcb-route-settings[open] summary{margin-bottom:13px}
 .pcb-route-settings[open] summary::after{content:"⌃"}
+
+
+/* v3.1: lightweight opt-in part record and external diagnostic report panels */
+.pcb-datasheet-details,.pcb-report-details{
+ border:1px solid #d7e9f4;background:#f9fcff;border-radius:11px;
+ padding:11px 12px;margin:12px 0
+}
+.pcb-datasheet-details[hidden]{display:none!important}
+.pcb-datasheet-details summary,.pcb-report-details summary{
+ cursor:pointer;list-style:none;color:#3b7b9e;font-size:11px;font-weight:850;
+ display:flex;align-items:center;justify-content:space-between
+}
+.pcb-datasheet-details summary::-webkit-details-marker,.pcb-report-details summary::-webkit-details-marker{display:none}
+.pcb-datasheet-details summary::after,.pcb-report-details summary::after{content:"⌄";color:#9cb1c4}
+.pcb-datasheet-details[open] summary::after,.pcb-report-details[open] summary::after{content:"⌃"}
+.pcb-datasheet-details p,.pcb-report-details p{font-size:10px;line-height:1.7;color:#879fae;margin:11px 0}
+.pcb-datasheet-details label,.pcb-report-details label{
+ display:block;color:#698ca3;font-size:10px;font-weight:700;margin:11px 0 6px
+}
+.pcb-datasheet-details>input,.pcb-rating-grid input{
+ width:100%;border-radius:8px;border:1px solid #c9e1ee;background:#fff;
+ padding:10px;color:#356e8b;font-size:11px;min-width:0
+}
+.pcb-rating-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 10px}
+.pcb-reviewed-label{display:flex!important;align-items:start;gap:7px;line-height:1.6;font-size:10px!important}
+.pcb-reviewed-label input{margin-top:2px;accent-color:#278ac9}
+#pcbSavePartRecord,#pcbClearReports{
+ width:100%;border-radius:8px;border:1px solid #c0dfea;
+ padding:10px;background:#eaf6ff;color:#267eaf;font-size:11px;font-weight:850;margin-top:11px
+}
+#pcbPartRecordStatus,#pcbImportedReports{
+ white-space:pre-line;font-size:10px;line-height:1.7;color:#6489a0;margin-top:10px
+}
+.pcb-report-details input[type="file"]{display:block;margin-top:7px;max-width:100%;font-size:10px;color:#7397ad}
+.pcb-source-link{display:block;font-size:10px;margin:8px 0;color:#167fae;overflow-wrap:anywhere;text-decoration:underline}
+.pcb-source-link[hidden]{display:none}
+#pcbPartQualityStatus{white-space:pre-line}
+@media(max-width:550px){.pcb-rating-grid{gap:0 7px}.pcb-datasheet-details,.pcb-report-details{padding:9px}}
