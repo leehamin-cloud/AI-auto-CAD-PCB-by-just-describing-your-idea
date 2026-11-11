@@ -465,26 +465,66 @@ function exportFile(type){
  const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=base+"-"+type+"."+ext;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);log("EXPORT","Downloaded "+link.download);notify("Downloaded "+ext.toUpperCase()+" to your device");
 }
 function copyText(str){if(navigator.clipboard?.writeText){navigator.clipboard.writeText(str).then(()=>notify("Copied to clipboard")).catch(()=>notify("Clipboard unavailable",true))}else notify("Clipboard API unavailable in this browser",true)}
-function applyCommand(){
- const field=$("#commandInput"),cmd=field.value.trim();if(!cmd){notify("Enter a design command",true);return}
- const hist=$("#chatHistory"),msg=document.createElement("div");msg.className="chat-user";msg.textContent=cmd;hist.append(msg);
- const p=current();let result="",changed=false,model=null;const lower=cmd.toLowerCase();
- if(/plate|플레이트|판재/.test(lower))model="plate";else if(/block|블록/.test(lower))model="block";else if(/2\s*[- ]?\s*dof|robot arm|로봇팔/.test(lower))model="arm";
- if(model&&p.model!==model){setTemplate(model);changed=true;result="Switched to "+modelNames[model]+". "}
- const changes={},text=lower.replaceAll(","," ");
- const patterns=[
- ["link1",/(?:link\s*1|l1|first\s+link|첫\s*링크|상완)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
- ["link2",/(?:link\s*2|l2|second\s+link|둘째\s*링크|전완)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
+
+/* Bounded, deterministic local-command grammar. Does not call an LLM. */
+function detectTemplate(text){
+ const s=String(text).toLowerCase();
+ if(/bracket|브래킷|ㄱ자/.test(s))return "bracket";
+ if(/shaft|원통|회전\s*축|축\s*만들/.test(s))return "shaft";
+ if(/plate|플레이트|구멍판|나사\s*판|판재|판\s*만들|평평한\s*판/.test(s))return "plate";
+ if(/block|블록/.test(s))return "block";
+ if(/2\s*[- ]?\s*dof|robot arm|로봇팔/.test(s))return "arm";
+ return null;
+}
+function parseRuleCommand(text,model){
+ const defs=limits[model];if(!defs)return {changes:{},error:"지원하지 않는 모델입니다."};
+ const rules=new Map(defs.map(row=>[row[0],row]));
+ const rx=[
+ ["hole_count",/(?:holes?|구멍\s*(?:개수|수)?)\s*(?:=|:|to|을|를|는)?\s*(\d+(?:\.\d+)?)/i],
+ ["hole_diameter",/(?:hole\s*diameter|구멍\s*(?:의\s*)?(?:지름|크기)|홀\s*지름)\s*(?:=|:|to|을|를|는)?\s*(\d+(?:\.\d+)?)/i],
+ ["offset_x",/(?:offset[_\s-]*x|좌우\s*여백|가로\s*여백)\s*(?:=|:|to|을|를|는)?\s*(\d+(?:\.\d+)?)/i],
+ ["offset_y",/(?:offset[_\s-]*y|위아래\s*여백|세로\s*여백)\s*(?:=|:|to|을|를|는)?\s*(\d+(?:\.\d+)?)/i],
+ ["link1",/(?:link\s*1|l1|first\s+link|첫\s*링크|첫\s*번째\s*팔|상완)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
+ ["link2",/(?:link\s*2|l2|second\s+link|둘째\s*링크|두\s*번째\s*팔|전완)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
  ["angle1",/(?:angle\s*1|theta\s*1|joint\s*1|관절\s*1)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
  ["angle2",/(?:angle\s*2|theta\s*2|joint\s*2|관절\s*2)\s*(?:=|:|to|를|은)?\s*(-?\d+(?:\.\d+)?)/i],
- ["payload",/(?:payload|하중)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i]
+ ["payload",/(?:payload|하중|끝에\s*다는\s*무게)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i],
+ ["thickness",/(?:thickness|두께)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i],
+ ["diameter",/(?:diameter|지름)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i],
+ ["height",/(?:height|높이)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i],
+ ["width",/(?:width|너비|폭|세로)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i],
+ ["length",/(?:length|가로|길이)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i]
  ];
- for(const [key,pat] of patterns){const m=text.match(pat);if(m){const val=Number(m[1]);const rule=limits[current().model].find(r=>r[0]===key);if(!rule){result="That parameter is not supported for this template.";break}if(!Number.isFinite(val)||val<rule[2]||val>rule[3]){result=rule[1]+" must stay between "+rule[2]+" and "+rule[3]+".";break}changes[key]=val}}
- if(Object.keys(changes).length&&!/(must stay between|not supported)/.test(result)){mutate(q=>Object.assign(q.params,changes),"Rule command: "+Object.keys(changes).join(", "));changed=true;result+="Updated "+Object.entries(changes).map(x=>x[0]+" = "+x[1]).join(", ")+". Mesh regenerated."}
- if(!result)result=changed?"Template updated.":"No supported change detected. Try: link1 150 link2 100, angle1 45, or create plate.";
- const reply=document.createElement("div");reply.className="chat-response";reply.textContent=result;hist.append(reply);hist.scrollTop=hist.scrollHeight;
- log(changed?"RULE":"INFO",result,!changed);notify(result,!changed);field.value="";
+ const changes={};
+ for(const [key,pattern] of rx){
+  if(!rules.has(key))continue;
+  const match=String(text).match(pattern);if(!match)continue;
+  const value=Number(match[1]),row=rules.get(key);
+  if(!Number.isFinite(value)||value<row[2]||value>row[3])return {changes:{},error:"‘"+row[1]+"’의 허용 범위는 "+row[2]+"~"+row[3]+"입니다."};
+  changes[key]=value;
+ }
+ if(Object.keys(changes).length===0)return {changes:{},error:null};
+ return {changes,error:null};
 }
+function applyCommand(){
+ const field=$("#commandInput"),cmd=field.value.trim();
+ if(!cmd){notify("무엇을 바꾸고 싶은지 입력해주세요.",true);return}
+ const hist=$("#chatHistory"),msg=document.createElement("div");msg.className="chat-user";msg.textContent=cmd;hist.append(msg);
+ const model=detectTemplate(cmd);let switched=false,reply="";
+ if(model&&model!==current().model){setTemplate(model);switched=true;reply=({arm:"로봇팔",plate:"구멍판",block:"블록",bracket:"ㄱ자 브래킷",shaft:"원통 축"}[model]||model)+" 모델을 선택했어요. "}
+ const parsed=parseRuleCommand(cmd,current().model);
+ if(parsed.error)reply+=parsed.error;
+ else if(Object.keys(parsed.changes).length){
+  const next={...current().params,...parsed.changes},error=validateDesign(current().model,next);
+  if(error)reply+=error;
+  else{mutate(p=>Object.assign(p.params,parsed.changes),"입력 명령: "+Object.keys(parsed.changes).join(", "));
+   reply+="치수를 변경하고 3D 모델을 다시 만들었어요: "+Object.entries(parsed.changes).map(([k,v])=>k+" "+v).join(", ")+".";
+  }
+ }else if(!switched)reply="알아들을 수 있는 치수가 없어요. 예: ‘구멍 4’, ‘구멍 지름 8’, ‘첫 링크 150’.";
+ const response=document.createElement("div");response.className="chat-response";response.textContent=reply;hist.append(response);hist.scrollTop=hist.scrollHeight;
+ log("RULE",reply);notify(reply,Boolean(parsed.error));field.value="";
+}
+
 function bindUI(){
  $("#createProjectButton").addEventListener("click",()=>{$("#projectDialog").showModal();renderProjectList()});
  $("#projectPicker").addEventListener("click",()=>{$("#projectDialog").showModal();renderProjectList()});
