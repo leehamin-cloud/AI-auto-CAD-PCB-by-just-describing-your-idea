@@ -447,8 +447,12 @@ function shapeSvg(b=board){
  for(let y=step;y<b.height;y+=step)gy.push('<line class="pcb-grid" x1="0" y1="'+y+'" x2="'+b.width+'" y2="'+y+'"/>');
  const traces=trackLines(b).map(t=>{
   const on=selected?.type==="trace"&&selected.id===t.id?" selected":"";
-  return '<line data-trace="'+safe(t.id)+'" class="pcb-trace'+on+'" x1="'+num(t.start.x)+'" y1="'+num(t.start.y)+'" x2="'+num(t.end.x)+'" y2="'+num(t.end.y)+'" stroke-width="'+num(t.width)+'" />';
+  const back=t.layer==="B.Cu"?" layer-b":" layer-f";
+  return '<line data-trace="'+safe(t.id)+'" class="pcb-trace'+back+on+'" x1="'+num(t.start.x)+'" y1="'+num(t.start.y)+'" x2="'+num(t.end.x)+'" y2="'+num(t.end.y)+'" stroke-width="'+num(t.width)+'" />';
  }).join("");
+ const vias=b.traces.flatMap(t=>(t.vias||[]).map(v=>
+  '<g data-trace="'+safe(t.id)+'" class="pcb-via"><circle cx="'+num(v.x)+'" cy="'+num(v.y)+'" r="'+num(v.diameter/2)+'"/><circle cx="'+num(v.x)+'" cy="'+num(v.y)+'" r="'+num(v.drill/2)+'" class="pcb-via-hole"/></g>'
+ )).join("");
  const components=b.components.map(c=>{
   const shape=geometry(c);const on=selected?.type==="component"&&selected.id===c.id?" pcb-comp-selected":"";
   const padHtml=shape.pads.map((p,i)=>{
@@ -479,7 +483,7 @@ function shapeSvg(b=board){
  return '<g transform="translate('+num(originX)+' '+num(originY)+') scale('+num(scale)+')">'+
    '<rect class="pcb-board" width="'+b.width+'" height="'+b.height+'" rx="1.0"/>'+
    '<g>'+gx.join("")+gy.join("")+'</g><rect class="pcb-board-outline" width="'+b.width+'" height="'+b.height+'" rx="1.0"/>'+
-   traces+unrouted+wire+components+scaleText+'</g>';
+   traces+vias+unrouted+wire+components+scaleText+'</g>';
 }
 function draw(){
  if(!active)return;
@@ -586,9 +590,13 @@ function kicadDraft(b=board){
   }
   line.push(' )');
  }
- for(const t of trackLines(b)){
+ for(const [index,t] of trackLines(b).entries()){
   const net=connections.traceNets.get(t.id)||0,p=t.start,r=t.end;
-  line.push(' (segment (start '+f(p.x)+' '+f(p.y)+') (end '+f(r.x)+' '+f(r.y)+') (width '+f(t.width)+') (layer "F.Cu") (net '+net+') (uuid "'+uid(t.id)+'"))');
+  line.push(' (segment (start '+f(p.x)+' '+f(p.y)+') (end '+f(r.x)+' '+f(r.y)+') (width '+f(t.width)+') (layer '+q(t.layer)+') (net '+net+') (uuid "'+uid(t.id+"-seg-"+index)+'"))');
+ }
+ for(const t of b.traces)for(const [i,via] of (t.vias||[]).entries()){
+  const net=connections.traceNets.get(t.id)||0;
+  line.push(' (via (at '+f(via.x)+' '+f(via.y)+') (size '+f(via.diameter)+') (drill '+f(via.drill)+') (layers "F.Cu" "B.Cu") (net '+net+') (uuid "'+uid(t.id+"-via-"+i)+'"))');
  }
  line.push(')');
  return line.join("\n");
@@ -600,7 +608,7 @@ function svgDocument(){
  routing=previous;mousePoint=priorMouse;
  return '<?xml version="1.0" encoding="UTF-8"?>\n'+
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640">'+
-  '<style>.pcb-board{fill:#d9f2ef;stroke:#498b90;stroke-width:.4}.pcb-grid{stroke:#81aeb030;stroke-width:.1}.pcb-board-outline{fill:none;stroke:#398e86;stroke-width:.35}.pcb-comp-body{fill:#fff;stroke:#468da1;stroke-width:.28}.pcb-pad{fill:#d59b4d;stroke:#fff;stroke-width:.25}.pcb-comp-label{font:700 2.2px Arial;fill:#235579;text-anchor:middle}.pcb-trace{stroke:#de7b55;stroke-linecap:round}.pcb-board-mm{font:2px Arial;fill:#46787e;text-anchor:middle}</style>'+
+  '<style>.pcb-board{fill:#d9f2ef;stroke:#498b90;stroke-width:.4}.pcb-grid{stroke:#81aeb030;stroke-width:.1}.pcb-board-outline{fill:none;stroke:#398e86;stroke-width:.35}.pcb-comp-body{fill:#fff;stroke:#468da1;stroke-width:.28}.pcb-pad{fill:#d59b4d;stroke:#fff;stroke-width:.25}.pcb-comp-label{font:700 2.2px Arial;fill:#235579;text-anchor:middle}.pcb-trace{stroke:#de7b55;stroke-linecap:round}.pcb-trace.layer-b{stroke:#9f72cc}.pcb-via circle{fill:#bd82cd;stroke:#fff;stroke-width:.1}.pcb-via .pcb-via-hole{fill:#eff8ff}.pcb-board-mm{font:2px Arial;fill:#46787e;text-anchor:middle}</style>'+
   content+'</svg>';
 }
 function exportBoard(type){
