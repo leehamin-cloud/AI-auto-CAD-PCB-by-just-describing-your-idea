@@ -197,16 +197,137 @@
   }
   function preview(){
     const el=$chat("#commandInput");if(!el)return;
+    if(isOnline()){
+      const text=el.value.trim();
+      status({kind:"help",note:text?"AI가 문장을 해석합니다. 전송하면 검증 후 3D에 적용합니다.":"실제 AI 모드에서 작성한 내용은 서버로 전송됩니다."});
+      return {kind:"online"};
+    }
     const plan=parse(el.value);
     status(plan);
     return plan;
   }
+
+  /* Remote model mode is optional. Keys NEVER appear in the static site bundle.
+     The access code is kept only in the current input field, never localStorage. */
+  const AI_URL="https://robot-forge-ai-proxy.onrender.com";
+  let aiReady=false,aiSending=false;
+  const isOnline=()=>Boolean(aiReady&&$chat("#useOnlineAI")?.checked);
+  function updateAIBadge(){
+    const badge=$chat("#chatProviderBadge");
+    if(!badge)return;
+    badge.textContent=isOnline()?"OpenAI 채팅":"로컬 채팅";
+    badge.classList.toggle("server",isOnline());
+  }
+  async function refreshAIStatus(){
+    const indicator=$chat("#aiConnectivity"),toggle=$chat("#useOnlineAI"),code=$chat("#aiAccessCode");
+    if(indicator)indicator.textContent="연결 확인 중…";
+    const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),14000);
+    try{
+      const res=await fetch(AI_URL+"/api/status",{method:"GET",cache:"no-store",signal:ctl.signal});
+      if(!res.ok)throw Error("HTTP "+res.status);
+      const data=await res.json();
+      aiReady=Boolean(data.enabled===true);
+      if(toggle)toggle.disabled=!aiReady;
+      if(code)code.disabled=!aiReady;
+      if(indicator){indicator.textContent=aiReady?"AI 연결 준비 완료":"API 키 설정 필요";indicator.classList.toggle("ready",aiReady)}
+      if(!aiReady&&toggle)toggle.checked=false;
+    }catch{
+      aiReady=false;
+      if(toggle){toggle.checked=false;toggle.disabled=true}
+      if(code)code.disabled=true;
+      if(indicator){indicator.textContent="AI 서버 연결 불가";indicator.classList.remove("ready")}
+    }finally{clearTimeout(timer);updateAIBadge()}
+  }
+  async function sendOnlineAI(text,field){
+    const access=$chat("#aiAccessCode")?.value||"";
+    if(!access){
+      append("assistant","실제 AI 모드에는 Render에서 설정한 접근 코드가 필요합니다. 코드를 입력하거나 로컬 채팅으로 전환해주세요.",true);
+      status({kind:"error",note:"AI 접근 코드를 입력해주세요."});return;
+    }
+    if(text.length>900){
+      append("assistant","실제 AI 요청은 900자 이내로 작성해주세요.",true);
+      status({kind:"error",note:"900자 이내로 입력해주세요."});return;
+    }
+    if(aiSending)return;
+    aiSending=true;
+    const button=$chat("#sendCommandButton"),projectId=current().id;
+    const base={model:current().model,params:{...current().params}};
+    const tag=JSON.stringify(base);
+    if(button)button.disabled=true;
+    status({kind:"help",note:"실제 AI가 CAD 치수 변경안을 해석하고 있습니다…"});
+    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),40000);
+    try{
+      const res=await fetch(AI_URL+"/api/plan",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","X-RobotForge-Code":access},
+        body:JSON.stringify({
+          prompt:text,model:base.model,params:base.params,
+          history:transcript.slice(-7,-1).map(x=>({role:x.role,text:x.text.slice(0,300)})),
+        }),
+        signal:abort.signal,cache:"no-store",
+      });
+      if(!res.ok){
+        let detail="AI 요청 실패 ("+res.status+")";
+        try{const problem=await res.json();if(typeof problem.detail==="string")detail=problem.detail}catch{}
+        throw Error(detail);
+      }
+      const proposal=await res.json();
+      if(current().id!==projectId||JSON.stringify({model:current().model,params:current().params})!==tag){
+        throw Error("AI 응답 도중 현재 설계가 변경됐습니다. 다시 요청하면 최신 모델로 계산합니다.");
+      }
+      if(!proposal||!Object.hasOwn(defaults,proposal.model)||!Array.isArray(proposal.edits)||proposal.edits.length>10||proposal.source!=="openai"){
+        throw Error("AI 응답의 형식이 올바르지 않습니다.");
+      }
+      const model=proposal.model,rows=new Map(limits[model].map(x=>[x[0],x]));
+      const next=model===base.model?{...base.params}:{...defaults[model]};
+      const seen=new Set(),descriptions=[];
+      for(const edit of proposal.edits){
+        if(!edit||typeof edit.key!=="string"||!rows.has(edit.key)||seen.has(edit.key)||
+           typeof edit.value!=="number"||!Number.isFinite(edit.value))throw Error("AI 수정안에 지원하지 않는 값이 있습니다.");
+        const rule=rows.get(edit.key);
+        if(edit.value<rule[2]||edit.value>rule[3]||
+           (edit.key==="hole_count"&&![0,1,2,4].includes(edit.value))){
+          throw Error("AI가 허용 범위를 벗어난 치수를 제안했습니다.");
+        }
+        seen.add(edit.key);next[edit.key]=edit.value;
+        descriptions.push((fieldLabels[edit.key]||edit.key)+" "+edit.value+ruleUnit(edit.key));
+      }
+      const problem=validateDesign(model,next);
+      if(problem)throw Error("AI 수정안 검증 실패: "+problem);
+      const changed=model!==base.model||Object.keys(next).some(k=>!near(next[k],base.params[k]));
+      if(changed){
+        const label="AI 채팅: "+modelLabels[model]+" "+descriptions.join(", ");
+        mutate(p=>{p.model=model;p.params={...next};p.hiddenParts=[]},label.slice(0,90));
+        const integrity=meshDiagnostics(buildParts());
+        append("assistant","AI 수정안 적용 완료 ✨\n"+(model!==base.model?"모델: "+modelLabels[model]+"\n":"")+
+          (descriptions.length?descriptions.join(" · ")+"\n":"")+
+          (typeof proposal.message==="string"?proposal.message.slice(0,380)+"\n":"")+
+          "3D 모델을 갱신했습니다. "+(integrity.closed?"메시 닫힘 검사 통과.":"메시 검토가 필요합니다.")+
+          "\n수정 기록에서 이전 상태로 되돌릴 수 있습니다.",true);
+        notify("AI의 CAD 수정안이 적용됐어요");
+      }else{
+        append("assistant",typeof proposal.message==="string"?proposal.message.slice(0,450):"현재 모델에 적용할 변경사항이 없습니다.",true);
+      }
+      status({kind:"help",note:"✓ AI 응답 처리 완료 · 결과를 확인해주세요."});
+    }catch(e){
+      append("assistant","AI 연결에서 문제가 발생했습니다: "+(e?.message||String(e))+
+        "\n현재 설계는 변경되지 않았습니다. 로컬 채팅 모드로 전환하면 바로 수정할 수 있습니다.",true);
+      status({kind:"error",note:"AI 요청 실패 · 현재 CAD는 그대로입니다."});
+    }finally{clearTimeout(timer);aiSending=false;if(button)button.disabled=false;field.focus()}
+  }
+
   function send(){
     loadProjectChat();
     const field=$chat("#commandInput");if(!field)return;
     const msg=field.value.trim();
     if(!msg){status({kind:"empty",note:"무엇을 수정하고 싶으신가요?"});field.focus();return}
     if(msg.length>1500){status({kind:"error",note:"1500자 이내로 입력해주세요."});return}
+    if(aiSending)return;
+    if(isOnline()){
+      append("user",msg,true);
+      field.value="";
+      return sendOnlineAI(msg,field);
+    }
     const plan=parse(msg);
     append("user",msg,true);
     field.value="";
@@ -274,6 +395,9 @@
         event.preventDefault();send();
       }
     });
+    $chat("#useOnlineAI")?.addEventListener("change",()=>{updateAIBadge();preview()});
+    $chat("#aiRetryButton")?.addEventListener("click",refreshAIStatus);
+    refreshAIStatus();
     $chat("#chatClearButton")?.addEventListener("click",clear);
     $chat("#topChatButton")?.addEventListener("click",show);
     $chat("#canvasChatButton")?.addEventListener("click",show);
