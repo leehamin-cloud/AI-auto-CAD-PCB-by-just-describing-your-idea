@@ -36,6 +36,7 @@ run("public/workspace/pcb-parity.js");
 run("public/workspace/pcb-kicad-schematic.js");
 run("public/workspace/pcb-footprint-graphics.js");
 run("public/workspace/pcb-router-v30.js");
+run("public/workspace/pcb-quality-v31.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
 assert.ok(net&&pcb,"PCB modules should load");
@@ -406,6 +407,90 @@ test("v3.0: moving a routed component invalidates geometry-anchored autoroutes",
  assert.ok(pcb.test.read().components.find(c=>c.id==="J1").x>original.x);
  pcb.undo();
  assert.equal(pcb.test.read().traces.some(t=>t.sections),true);
+});
+
+
+const quality=window.robotForgePCBQuality;
+test("v3.1: missing datasheet record remains backward compatible",()=>{
+ assert.equal(pcb.test.isValidShape(pcb.test.starter()),true);
+ assert.equal(quality.validPart(undefined),true);
+});
+test("v3.1: malicious or non-HTTPS datasheet URL rejected",()=>{
+ const b=pcb.test.starter();b.components[0].part={datasheetUrl:"javascript:alert(1)"};
+ assert.equal(pcb.test.isValidShape(b),false);
+ assert.equal(quality.validPart({datasheetUrl:"http://example.com/docs.pdf"}),false);
+});
+test("v3.1: user supplied ratings overrun flagged without safety approval",()=>{
+ const b=pcb.test.starter();
+ b.components[0].part={manufacturer:"Sample",mpn:"TEST-1",datasheetUrl:"https://example.org/datasheet.pdf",
+  maxVoltageV:5,operatingVoltageV:12,maxCurrentMa:100,operatingCurrentMa:20,reviewedByUser:true};
+ const result=quality.analyze(b,catalog);
+ assert.equal(pcb.test.isValidShape(b),true);
+ assert.ok(result.issues.some(s=>s.includes("전압")));
+ assert.equal(result.manufacturingAuthorized,false);
+ assert.equal(result.verifiedByManufacturer,0);
+});
+test("v3.1: component pitch mismatch is caught with selected footprint reference",()=>{
+ const b=pcb.test.starter();b.components[2].profile=catalog.profiles.led.key;
+ b.components[2].part={datasheetPitchMm:5};
+ const result=quality.analyze(b,catalog);
+ assert.ok(result.issues.some(s=>s.includes("핀 간격")));
+});
+test("v3.1: experimental schematic carries part number and datasheet properties",()=>{
+ const b=pcb.test.starter();
+ b.components[0].part={manufacturer:"Example Maker",mpn:"HDR-TH-3",datasheetUrl:"https://example.org/hdr.pdf"};
+ const sch=kiSch.generate(b);
+ assert.match(sch,/\(property "Manufacturer" "Example Maker"/);
+ assert.match(sch,/\(property "MPN" "HDR-TH-3"/);
+ assert.match(sch,/\(property "Datasheet" "https:\/\/example.org\/hdr.pdf"/);
+});
+test("v3.1: official diagnostic JSON is parsed only as user-imported reference",()=>{
+ const input=JSON.stringify({kicad_version:"9.0",violations:[{description:"Unconnected pin",severity:"error"}]});
+ const record=quality.parseImportedFile(input,"erc");
+ assert.equal(record.issueCount,1);
+ assert.equal(record.source,"USER_IMPORTED_UNVERIFIED");
+ assert.equal(record.approved,false);
+});
+test("v3.1: zero-findings imported report is not a fabrication signoff",()=>{
+ const record=quality.parseImportedFile(JSON.stringify({violations:[],unconnected_items:[]}),"drc");
+ assert.equal(record.issueCount,0);
+ assert.equal(record.status,"NO_REPORTED_FINDINGS_UNVERIFIED");
+ assert.equal(record.approved,false);
+});
+test("v3.1: report lacking KiCad diagnostic arrays is rejected",()=>{
+ assert.throws(()=>quality.parseImportedFile('{"some":1}',"drc"),/violations/);
+});
+test("v3.1: imported report is marked stale when local design changes",()=>{
+ pcb.test.set(pcb.test.starter());
+ pcb.test.acceptDiagnosticReport("drc",JSON.stringify({violations:[]}),"official-drc.json");
+ const state={drc:{...quality.parseImportedFile(JSON.stringify({violations:[]}),"drc"),
+  fingerprint:quality.fingerprint(pcb.test.read())}};
+ assert.equal(quality.reportOverview(state,pcb.test.read()).checks.drc.currentLocalDraft,true);
+ const changed=pcb.test.read();changed.width+=5;
+ assert.equal(quality.reportOverview(state,changed).checks.drc.currentLocalDraft,false);
+ assert.equal(quality.reportOverview(state,changed).manufacturingAuthorized,false);
+ pcb.test.clearDiagnosticReports();
+});
+test("v3.1: part information controls create an editable record and support undo",()=>{
+ pcb.test.set(pcb.test.starter());
+ const target={closest(q){return q==="[data-component]"?{dataset:{component:"J1"}}:null}};
+ el("#pcbSvg").trigger("pointerdown",{target,pointerId:77,clientX:240,clientY:240});
+ el("#pcbPartManufacturer").value="Company A";
+ el("#pcbPartMpn").value="A-123";
+ el("#pcbPartDatasheetUrl").value="https://example.org/ds.pdf";
+ el("#pcbMaxVoltage").value="15";
+ el("#pcbUseVoltage").value="12";
+ el("#pcbPartPitch").value="";
+ el("#pcbMaxCurrent").value="";
+ el("#pcbUseCurrent").value="";
+ el("#pcbReviewedPart").checked=true;
+ const result=pcb.test.savePartRecord();
+ assert.equal(result,true);
+ const part=pcb.test.read().components.find(c=>c.id==="J1").part;
+ assert.equal(part.mpn,"A-123");
+ assert.equal(part.maxVoltageV,15);
+ pcb.undo();
+ assert.equal(pcb.test.read().components.find(c=>c.id==="J1").part,undefined);
 });
 
 const generated=pcb.test.kicadDraft();
