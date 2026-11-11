@@ -110,6 +110,18 @@ function validate(b=board){
   if(c.x-ex<1.5||c.x+ex>b.width-1.5||c.y-ey<1.5||c.y+ey>b.height-1.5)
    issues.push(c.id+" 부품이 기판 가장자리에서 1.5mm보다 가깝습니다.");
  }
+ // Approximate rotated component courtyards by axis-aligned bounding boxes.
+ for(let i=0;i<b.components.length;i++)for(let j=i+1;j<b.components.length;j++){
+  const a=b.components[i],c=b.components[j],A=lib[a.kind],B=lib[c.kind];
+  const ext=p=>{
+    const shape=lib[p.kind],angle=p.rotation*Math.PI/180;
+    return {x:(Math.abs(Math.cos(angle))*shape.w+Math.abs(Math.sin(angle))*shape.h)/2,
+            y:(Math.abs(Math.sin(angle))*shape.w+Math.abs(Math.cos(angle))*shape.h)/2};
+  };
+  const ea=ext(a),eb=ext(c);
+  const gapX=Math.abs(a.x-c.x)-ea.x-eb.x,gapY=Math.abs(a.y-c.y)-ea.y-eb.y;
+  if(gapX<0.5&&gapY<0.5)issues.push(a.id+" ↔ "+c.id+" 부품 외형이 겹치거나 0.5mm 이내로 접근합니다.");
+ }
  for(let i=0;i<allPads.length;i++){
   const a=allPads[i];
   if(a.x<1.3||a.x>b.width-1.3||a.y<1.3||a.y>b.height-1.3)
