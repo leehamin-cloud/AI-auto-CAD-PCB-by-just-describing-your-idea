@@ -10,16 +10,20 @@ const fmt=(x,n=1)=>Number(x).toLocaleString("en-US",{maximumFractionDigits:n});
 const density={aluminum:2.7,petg:1.27,steel:7.85};
 const limits={
  arm:[["link1","Upper link length",40,500,1,"mm"],["link2","Forearm length",40,500,1,"mm"],["base","Base diameter (approx.)",45,220,1,"mm"],["width","Link width",8,90,1,"mm"],["thickness","Link thickness",4,60,1,"mm"],["angle1","Shoulder angle",-160,160,1,"°"],["angle2","Elbow angle",-160,160,1,"°"],["payload","Payload",0,1500,10,"g"]],
- plate:[["length","Plate length",25,450,1,"mm"],["width","Plate width",25,400,1,"mm"],["thickness","Thickness",2,80,1,"mm"]],
- block:[["length","Block length",20,450,1,"mm"],["width","Block width",20,400,1,"mm"],["height","Block height",10,200,1,"mm"]]
+ plate:[["length","Plate length",50,450,1,"mm"],["width","Plate width",40,400,1,"mm"],["thickness","Thickness",2,80,1,"mm"],["hole_count","Mounting holes",0,4,1,"개"],["hole_diameter","Hole diameter",3,24,.5,"mm"],["offset_x","Hole inset X",8,90,1,"mm"],["offset_y","Hole inset Y",8,90,1,"mm"]],
+ block:[["length","Block length",20,450,1,"mm"],["width","Block width",20,400,1,"mm"],["height","Block height",10,200,1,"mm"]],
+ bracket:[["length","Bracket base length",30,400,1,"mm"],["width","Bracket width",20,200,1,"mm"],["height","Bracket height",25,350,1,"mm"],["thickness","Wall thickness",3,50,1,"mm"]],
+ shaft:[["length","Shaft length",20,450,1,"mm"],["diameter","Shaft diameter",5,150,1,"mm"]]
 };
 const defaults={
  arm:{link1:128,link2:104,base:80,width:24,thickness:12,angle1:34,angle2:-28,payload:200},
- plate:{length:160,width:100,thickness:8},
- block:{length:100,width:65,height:48}
+ plate:{length:160,width:100,thickness:8,hole_count:4,hole_diameter:8,offset_x:20,offset_y:20},
+ block:{length:100,width:65,height:48},
+ bracket:{length:100,width:55,height:78,thickness:9},
+ shaft:{length:135,diameter:22}
 };
-const modelNames={arm:"2-DOF Research Arm",plate:"Solid Mounting Blank",block:"Parametric Solid Block"};
-const modelSubtitles={arm:"2 revolute joints · visual mesh",plate:"No drilled holes · solid blank",block:"Simple rectangular volume"};
+const modelNames={arm:"2-DOF Research Arm",plate:"Drilled Mounting Plate",block:"Parametric Solid Block",bracket:"L Mounting Bracket",shaft:"Solid Round Shaft"};
+const modelSubtitles={arm:"2 revolute joints · visual mesh",plate:"Parametric through-holes · closed mesh",block:"Simple rectangular volume",bracket:"90° solid L bracket · closed mesh",shaft:"Round solid shaft · closed mesh"};
 const colors=["#7edb9d","#b6f986","#d3e9ca","#78ab82","#c2dfb2","#99c99e","#82a0a0"];
 function makeProject(name){
  const model="arm", params=clone(defaults.arm), material="aluminum";
@@ -28,9 +32,9 @@ function makeProject(name){
 }
 let projects=[],activeId="",panel="cad",inspect="properties",cam={yaw:-0.95,pitch:0.46,zoom:1.1,panX:0,panY:0},grid=true,edges=false,selectedPart=null,activeBottom="events",events=[],parts=[],toastTimer,dragging=false,downPoint=null,dragMoved=false;
 function safeProject(obj){
- if(!obj||typeof obj!=="object"||!["arm","plate","block"].includes(obj.model))throw Error("Unsupported project format");
+ if(!obj||typeof obj!=="object"||!Object.hasOwn(limits,obj.model))throw Error("Unsupported project format");
  const p=makeProject(obj.name||"Imported project");p.model=obj.model;p.params={};
- for(const [name,,min,max] of limits[p.model]){const v=Number(obj.params?.[name]);p.params[name]=Number.isFinite(v)&&v>=min&&v<=max?v:defaults[p.model][name]}
+ for(const [name,,min,max] of limits[p.model]){const v=Number(obj.params?.[name]);p.params[name]=Number.isFinite(v)&&v>=min&&v<=max&&(name!=="hole_count"||[0,1,2,4].includes(v))?v:defaults[p.model][name]}
  p.material=Object.hasOwn(density,obj.material)?obj.material:"aluminum";
  p.history=[{model:p.model,params:clone(p.params),material:p.material,label:"Imported scene",time:Date.now()}];p.cursor=0;
  return p;
@@ -77,6 +81,138 @@ function cylinderPart(id,label,center,r,length,color,segments=20){
  triangles.push(tri(p0,q1,p1),tri(p0,q0,q1),tri([center[0],y0,center[2]],p0,p1),tri([center[0],y1,center[2]],q1,q0));
  }return {id,label,color,triangles,volume:Math.PI*r*r*length};
 }
+
+/* Feature-aware closed triangle meshes (browser preview; not an OCC B-rep). */
+function validateDesign(model,a){
+ if(!Object.hasOwn(limits,model))return "지원하지 않는 형상입니다.";
+ if(!Object.values(a).every(Number.isFinite))return "모든 치수는 유효한 숫자여야 합니다.";
+ if(model==="bracket"&&a.thickness>=Math.min(a.height,a.length)/2)return "ㄱ자 브래킷의 두께가 너무 큽니다. 길이·높이의 절반보다 작게 설정하세요.";
+ if(model==="plate"){
+  if(![0,1,2,4].includes(a.hole_count))return "구멍 수는 0, 1, 2, 4개 중에서 선택하세요.";
+  if(a.hole_count>0){
+   const r=a.hole_diameter/2,web=2;
+   if(a.hole_count===1){
+    if(a.length/2<=r+web||a.width/2<=r+web)return "판이 구멍 크기에 비해 너무 작습니다.";
+   }else{
+    if(a.offset_x<=r+web||a.length/2-a.offset_x<=r+web)return "구멍이 판의 가로나 중앙에 너무 가깝습니다. 좌우 여백을 늘려주세요.";
+    if(a.hole_count===4&&(a.offset_y<=r+web||a.width/2-a.offset_y<=r+web))return "구멍이 판의 세로나 중앙에 너무 가깝습니다. 위아래 여백을 늘려주세요.";
+    if(a.hole_count===2&&a.width/2<=r+web)return "판의 세로 폭을 더 크게 설정하세요.";
+   }
+  }
+ }
+ return null;
+}
+function meshPlatePart(a){
+ const L=a.length,W=a.width,H=a.thickness,N=a.hole_count,r=a.hole_diameter/2,segments=12;
+ if(N===0)return boxPart("plate","Mounting plate (no holes)",[0,0,H/2],[L,W,H],0,colors[0]);
+ const xs=N===1?[-L/2,L/2]:[-L/2,0,L/2],ys=N===4?[-W/2,0,W/2]:[-W/2,W/2];
+ const triangles=[],rimPoints=[],circleCenters=[];
+ function T(p,q,v,z){return tri([p[0],p[1],z],[q[0],q[1],z],[v[0],v[1],z])}
+ function pushTop(t){triangles.push(t,tri(t[2].slice(0,2).concat(0),t[1].slice(0,2).concat(0),t[0].slice(0,2).concat(0)))}
+ function capTriangle(p,q,v){
+  triangles.push(T(p,q,v,H),T(v,q,p,0));
+ }
+ for(let i=0;i<xs.length-1;i++)for(let j=0;j<ys.length-1;j++){
+  const x0=xs[i],x1=xs[i+1],y0=ys[j],y1=ys[j+1];
+  const corners=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+  const cx=N===1?0:(i===0?-1:1)*(L/2-a.offset_x);
+  const cy=N===4?(j===0?-1:1)*(W/2-a.offset_y):0;
+  circleCenters.push([cx,cy]);
+  const angles=corners.map(([x,y])=>Math.atan2(y-cy,x-cx));
+  for(let k=1;k<angles.length;k++)while(angles[k]<=angles[k-1])angles[k]+=2*Math.PI;
+  const ring=[];
+  for(let q=0;q<4;q++){
+   const a0=angles[q],a1=q===3?angles[0]+2*Math.PI:angles[q+1];
+   const c0=corners[q],c1=corners[(q+1)%4],verts=[c0,c1];
+   for(let k=segments;k>=0;k--){const angle=a0+(a1-a0)*k/segments;verts.push([cx+r*Math.cos(angle),cy+r*Math.sin(angle)])}
+   for(let k=1;k<verts.length-1;k++)capTriangle(verts[0],verts[k],verts[k+1]);
+   for(let k=0;k<segments;k++){
+    const t0=a0+(a1-a0)*k/segments,t1=a0+(a1-a0)*(k+1)/segments;
+    const aP=[cx+r*Math.cos(t0),cy+r*Math.sin(t0)],bP=[cx+r*Math.cos(t1),cy+r*Math.sin(t1)];
+    // Bore normals point inward, toward the material void.
+    triangles.push(tri([aP[0],aP[1],0],[aP[0],aP[1],H],[bP[0],bP[1],H]));
+    triangles.push(tri([aP[0],aP[1],0],[bP[0],bP[1],H],[bP[0],bP[1],0]));
+    ring.push([aP,bP]);
+   }
+  }
+  // Vertical faces only at the external perimeter; never across internal cells.
+  for(let q=0;q<4;q++){
+   const outer=[j===0,i===xs.length-2,j===ys.length-2,i===0][q];
+   if(!outer)continue;
+   const c0=corners[q],c1=corners[(q+1)%4];
+   triangles.push(tri([c0[0],c0[1],0],[c1[0],c1[1],0],[c1[0],c1[1],H]));
+   triangles.push(tri([c0[0],c0[1],0],[c1[0],c1[1],H],[c0[0],c0[1],H]));
+  }
+ }
+ const area=ringPoints.length; // intentionally unused legacy-safe marker
+ // The polygonal bore is a 48-segment approximation of a circle.
+ let polygonRemovedArea=0;
+ for(const [cx,cy] of circleCenters){
+  const list=[];for(let k=0;k<4;k++){
+   const x0=k===0?0:0;
+  }
+  // Radius is the nominal machining dimension; volume remains an analytic estimate.
+  polygonRemovedArea+=Math.PI*r*r;
+ }
+ return {id:"plate",label:"Mounting plate with "+N+" through-holes",color:colors[0],triangles,volume:(L*W-polygonRemovedArea)*H};
+}
+function earClip2d(poly){
+ const ids=poly.map((_,i)=>i),faces=[];
+ const orient=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]);
+ const inside=(p,a,b,c)=>orient(a,b,p)>=-1e-7&&orient(b,c,p)>=-1e-7&&orient(c,a,p)>=-1e-7;
+ let guard=0;
+ while(ids.length>3&&guard++<100){
+  let found=false;
+  for(let i=0;i<ids.length;i++){
+   const ia=ids[(i+ids.length-1)%ids.length],ib=ids[i],ic=ids[(i+1)%ids.length];
+   if(orient(poly[ia],poly[ib],poly[ic])<1e-9)continue;
+   if(ids.some(d=>d!==ia&&d!==ib&&d!==ic&&inside(poly[d],poly[ia],poly[ib],poly[ic])))continue;
+   faces.push([ia,ib,ic]);ids.splice(i,1);found=true;break;
+  }
+  if(!found)throw Error("L bracket cap could not be triangulated");
+ }
+ if(ids.length===3)faces.push(ids);
+ return faces;
+}
+function meshBracketPart(a){
+ const {length:L,width:W,height:H,thickness:T}=a;
+ const poly=[[-L/2,0],[L/2,0],[L/2,H],[L/2-T,H],[L/2-T,T],[-L/2,T]];
+ const faces=earClip2d(poly),triangles=[],y0=-W/2,y1=W/2;
+ const v=(i,y)=>[poly[i][0],y,poly[i][1]];
+ for(const [a,b,c] of faces){triangles.push(tri(v(a,y0),v(b,y0),v(c,y0)));triangles.push(tri(v(c,y1),v(b,y1),v(a,y1)))}
+ for(let i=0;i<poly.length;i++){
+  const j=(i+1)%poly.length;
+  triangles.push(tri(v(i,y0),v(i,y1),v(j,y1)));
+  triangles.push(tri(v(i,y0),v(j,y1),v(j,y0)));
+ }
+ return {id:"bracket",label:"90-degree solid L bracket",color:colors[0],triangles,volume:(L*T+(H-T)*T)*W};
+}
+function meshDiagnostics(items){
+ const report={partCount:0,triangles:0,degenerate:0,boundaryEdges:0,nonManifoldEdges:0,reversedEdges:0,closed:true};
+ function key(p){return p.map(n=>Number(n).toFixed(5)).join(",")}
+ for(const part of items){
+  if(!part.triangles?.length)continue;report.partCount++;
+  const edges=new Map();
+  for(const face of part.triangles){
+   report.triangles++;
+   const a=sub3(face[1],face[0]),b=sub3(face[2],face[0]);
+   if(Math.hypot(...cross(a,b))<1e-8)report.degenerate++;
+   for(let i=0;i<3;i++){
+    const f=key(face[i]),t=key(face[(i+1)%3]),k=f<t?f+"|"+t:t+"|"+f;
+    const v=edges.get(k)||{n:0,dir:0};
+    v.n++;v.dir+=f<t?1:-1;edges.set(k,v);
+   }
+  }
+  for(const edge of edges.values()){
+   if(edge.n===1)report.boundaryEdges++;
+   else if(edge.n!==2)report.nonManifoldEdges++;
+   else if(edge.dir!==0)report.reversedEdges++;
+  }
+ }
+ report.closed=report.degenerate===0&&report.boundaryEdges===0&&report.nonManifoldEdges===0&&report.reversedEdges===0;
+ return report;
+}
+
 function buildParts(){
  const p=current(),a=p.params;let out=[];
  if(p.model==="arm"){
@@ -89,7 +225,11 @@ function buildParts(){
   out.push(boxPart("link2","Link 02 — forearm",[(j[0]+end[0])/2,0,(j[2]+end[2])/2],[L2,w*.83,h*.87],-t2,colors[1]));
   out.push(boxPart("tool","End tool bracket",[end[0]+9*Math.cos(t2),0,end[2]+9*Math.sin(t2)],[20,w*.9,h*.7],-t2,colors[5]));
  }else if(p.model==="plate"){
-  out.push(boxPart("plate","Undrilled plate blank",[0,0,a.thickness/2],[a.length,a.width,a.thickness],0,colors[0]));
+  out.push(meshPlatePart(a));
+ }else if(p.model==="bracket"){
+  out.push(meshBracketPart(a));
+ }else if(p.model==="shaft"){
+  out.push(cylinderPart("shaft","Solid circular shaft",[0,0,0],a.diameter/2,a.length,colors[1],48));
  }else {
   out.push(boxPart("block","Solid machined blank",[0,0,a.height/2],[a.length,a.width,a.height],0,colors[1]));
  }
