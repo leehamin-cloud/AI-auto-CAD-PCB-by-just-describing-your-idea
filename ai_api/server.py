@@ -177,7 +177,7 @@ def _provider_call(request: ProposalRequest) -> dict[str, Any]:
         "allowed_by_model": {name: list(ranges) for name, ranges in SCHEMAS.items()},
         "recent_conversation": [item.model_dump() for item in request.history[-4:]],
     }, ensure_ascii=False)
-    model = os.getenv("OPENAI_MODEL", "gpt-6-luna")
+    model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
     data = {
         "model": model,
         "instructions": INSTRUCTIONS,
