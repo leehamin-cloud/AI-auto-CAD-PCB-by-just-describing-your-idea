@@ -1,54 +1,54 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0d1211">
 <meta name="description" content="Robot Forge workspace — local browser 3D engineering sandbox and STL mesh export.">
-<title>Workspace — Robot Forge</title>
+<title>로봇 만들기 — Robot Forge</title>
 <link rel="stylesheet" href="./workspace.css">
 </head>
-<body>
+<body class="beginner-mode">
 <div id="app">
 <header class="app-topbar">
   <a href="/" class="brand" aria-label="Robot Forge home"><span class="brandmark">⬡</span><span>ROBOT <b>FORGE</b></span></a>
   <div class="top-divider"></div>
-  <div class="breadcrumbs"><a href="/">Projects</a><span class="sep">/</span><button id="projectPicker" class="project-name" title="Switch project"><span id="projectName">Research Arm Alpha</span> <span class="chevron">⌄</span></button><span id="saveState" class="save-state">● Saved locally</span></div>
+  <div class="breadcrumbs"><a href="/">홈</a><span class="sep">/</span><button id="projectPicker" class="project-name" title="Switch project"><span id="projectName">Research Arm Alpha</span> <span class="chevron">⌄</span></button><span id="saveState" class="save-state">● 이 기기에 저장됨</span></div>
   <div class="top-spacer"></div>
-  <span class="top-env"><span class="green-dot"></span> BROWSER SANDBOX</span>
+  <span class="top-env"><span class="green-dot"></span> 체험용 3D 편집기</span>
   <button class="icon-btn top-only" id="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
   <button class="icon-btn top-only" id="redoButton" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
-  <button class="top-button top-only" id="saveButton">⌕ <span>Save</span></button>
-  <button class="export-button" id="exportButton">↥ <span>Export</span></button>
+  <button class="top-button top-only" id="saveButton">⌕ <span>저장</span></button>
+  <div class="mode-switch" aria-label="작업 모드"><button id="beginnerModeButton" class="mode-choice active" aria-pressed="true">쉬운 모드</button><button id="expertModeButton" class="mode-choice" aria-pressed="false">전문가</button></div><button class="top-button help-button" id="helpButton" title="처음 사용 안내">? 도움말</button><button class="export-button" id="exportButton">↓ <span>파일 받기</span></button>
   <button class="icon-btn menu-mobile" id="mobileNavButton" aria-label="Show sidebar">☰</button>
 </header>
 
 <div class="workspace-shell">
   <aside class="left-sidebar" id="leftSidebar" aria-label="Project sidebar">
-    <div class="sidebar-header"><span>PROJECT NAVIGATION</span><button class="ghost-icon" id="createProjectButton" title="Create new project">＋</button></div>
+    <div class="sidebar-header"><span>만들기 메뉴</span><button class="ghost-icon" id="createProjectButton" title="Create new project">＋</button></div>
     <div class="nav-list" id="navList">
-      <button class="nav-option active" data-panel="cad"><span class="nav-icon">◈</span> Mechanical CAD <span class="nav-meta">LIVE</span></button>
-      <button class="nav-option" data-panel="electronics"><span class="nav-icon">▦</span> Electronics <span class="nav-meta muted-meta">DRAFT</span></button>
-      <button class="nav-option" data-panel="wiring"><span class="nav-icon">⌁</span> Wiring & harness <span class="nav-meta muted-meta">DRAFT</span></button>
-      <button class="nav-option" data-panel="simulation"><span class="nav-icon">◎</span> Simulation <span class="nav-meta muted-meta">2R</span></button>
-      <button class="nav-option" data-panel="code"><span class="nav-icon">⌘</span> Code studio</button>
-      <button class="nav-option" data-panel="bom"><span class="nav-icon">▤</span> Materials & BOM</button>
-      <button class="nav-option" data-panel="manufacturing"><span class="nav-icon">◫</span> Manufacturing <span class="nav-meta muted-meta">MESH</span></button>
+      <button class="nav-option active" data-panel="cad"><span class="nav-icon">◈</span> 3D 모양 만들기 <span class="nav-meta">편집</span></button>
+      <button class="nav-option" data-panel="electronics" data-expert-only="true"><span class="nav-icon">▦</span> 전자회로 <span class="nav-meta muted-meta">DRAFT</span></button>
+      <button class="nav-option" data-panel="wiring" data-expert-only="true"><span class="nav-icon">⌁</span> 배선 구성 <span class="nav-meta muted-meta">DRAFT</span></button>
+      <button class="nav-option" data-panel="simulation"><span class="nav-icon">◎</span> 힘·움직임 확인 <span class="nav-meta muted-meta">예상</span></button>
+      <button class="nav-option" data-panel="code" data-expert-only="true"><span class="nav-icon">⌘</span> 코드 만들기</button>
+      <button class="nav-option" data-panel="bom" data-expert-only="true"><span class="nav-icon">▤</span> 부품·재료 목록</button>
+      <button class="nav-option" data-panel="manufacturing"><span class="nav-icon">◫</span> 설계 파일 받기 <span class="nav-meta muted-meta">STL</span></button>
     </div>
-    <div class="section-heading"><span>ASSEMBLY TREE</span><div><button class="ghost-icon" id="addPartButton" title="Add template">＋</button></div></div>
+    <div class="section-heading"><span>로봇 구성품</span><div><button class="ghost-icon" id="addPartButton" title="Add template">＋</button></div></div>
     <div class="assembly-scroll" id="assemblyTree" role="tree" aria-label="Assembly parts"></div>
-    <div class="section-heading section-heading-sm">PROJECT SUMMARY</div>
+    <div class="section-heading section-heading-sm">프로젝트 정보</div>
     <div class="sidebar-summary">
-      <div><span>Components</span><b id="componentCount">0</b></div>
-      <div><span>Model</span><b id="summaryType">2-DOF Arm</b></div>
-      <div><span>Units</span><b>mm</b></div>
+      <div><span>부품 수</span><b id="componentCount">0</b></div>
+      <div><span>모델</span><b id="summaryType">2-DOF Arm</b></div>
+      <div><span>길이 단위</span><b>mm</b></div>
     </div>
-    <div class="sidebar-bottom"><div class="online-indicator">● Autosave on this device</div><span>Not a cloud account or managed CAD worker</span></div>
+    <div class="sidebar-bottom"><div class="online-indicator">● 브라우저에 자동 저장</div><span>클라우드 저장은 아직 지원하지 않아요.</span></div>
   </aside>
   
   <div id="leftResizer" class="resizer left-resizer" role="separator" aria-label="Resize project panel" tabindex="0"></div>
 
   <main class="center-column">
-    <div class="document-tabs"><div class="doc-tab"><span class="file-cube">◈</span><span id="documentTabName">robot-arm.rfscene</span><span class="tab-dot">●</span></div><button class="new-tab" id="newTabButton" title="New local project">＋</button><div class="tab-fill"></div><span class="tab-subtext">LOCAL ENGINEERING SCENE</span></div>
+    <div class="document-tabs"><div class="doc-tab"><span class="file-cube">◈</span><span id="documentTabName">robot-arm.rfscene</span><span class="tab-dot">●</span></div><button class="new-tab" id="newTabButton" title="New local project">＋</button><div class="tab-fill"></div><span class="tab-subtext">3D 편집 화면 · 로컬 저장</span></div>
     <div class="toolbar">
       <div class="toolbar-group">
         <button class="tool-icon active" id="selectTool" title="Select part" aria-label="Select part">↖</button>
@@ -59,28 +59,28 @@
         <button class="tool-icon" id="wireButton" title="Toggle edges">◫</button>
       </div>
       <div class="toolbar-right">
-        <button class="view-chip active" data-view="iso">ISO</button>
-        <button class="view-chip" data-view="front">FRONT</button>
-        <button class="view-chip" data-view="top">TOP</button>
-        <button class="view-chip" data-view="side">SIDE</button>
+        <button class="view-chip active" data-view="iso">입체</button>
+        <button class="view-chip" data-view="front">앞</button>
+        <button class="view-chip" data-view="top">위</button>
+        <button class="view-chip" data-view="side">옆</button>
         <span class="tool-divider"></span>
-        <span class="model-mode">◉ Shaded</span>
+        <span class="model-mode">◉ 3D 보기</span>
       </div>
     </div>
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="modelCanvas" aria-label="Interactive 3D shaded mesh view. Drag to orbit, shift-drag to pan, scroll to zoom.">Interactive 3D view needs Canvas support.</canvas>
       <div id="nonCadStage" class="noncad-stage" hidden></div>
-      <div class="viewport-label"><span class="green-dot"></span><span id="viewportTitle">ASSEMBLY / SHADED VIEW</span><span class="viewport-little">mm</span></div>
-      <div class="viewport-help">Drag to orbit · Shift-drag to pan · Scroll to zoom</div>
+      <div class="beginner-help" id="beginnerHelp"><div class="beginner-help-top"><span class="beginner-step">처음이라면 여기부터!</span><button id="dismissBeginnerHelp" aria-label="안내 접기">×</button></div><strong>3단계로 내 모델 만들기</strong><p>① 오른쪽에서 모델을 고르고 → ② 크기를 바꾸고 → ③ 적용 버튼을 누르세요.</p><div class="beginner-help-actions"><button id="beginnerChooseTemplate">모델 고르기</button><button id="beginnerSeeHow">사용법 보기</button></div></div><div class="viewport-label"><span class="green-dot"></span><span id="viewportTitle">3D 모델 보기</span><span class="viewport-little">mm</span></div>
+      <div class="viewport-help">드래그: 돌려보기 · Shift+드래그: 이동 · 휠: 확대</div>
       <div class="axis-widget"><span class="axis-z">Z ↑</span><span class="axis-y">Y ↗</span><span class="axis-x">X →</span></div>
       <div class="viewport-bottom"><span id="viewportStats">0 TRIANGLES</span><span id="selectedPartName">No selection</span></div>
       <div class="view-float"><button id="zoomInButton" aria-label="Zoom in">＋</button><button id="zoomOutButton" aria-label="Zoom out">−</button><button id="resetViewButton" aria-label="Reset view">⌖</button></div>
     </div>
     <section class="bottom-panel" id="bottomPanel">
       <div class="bottom-tabs">
-        <button class="bottom-tab active" data-bottom="events">ACTIVITY LOG <span id="activityCount" class="count-dot">0</span></button>
-        <button class="bottom-tab" data-bottom="output">DESIGN CHECKS</button>
-        <div class="bottom-grow"></div><span class="stream-mode">● LOCAL ONLY</span><button class="ghost-icon" id="toggleBottomButton" title="Collapse logs">⌄</button>
+        <button class="bottom-tab active" data-bottom="events">작업 기록 <span id="activityCount" class="count-dot">0</span></button>
+        <button class="bottom-tab" data-bottom="output">검증 상태</button>
+        <div class="bottom-grow"></div><span class="stream-mode">● 내 기기에만 저장</span><button class="ghost-icon" id="toggleBottomButton" title="Collapse logs">⌄</button>
       </div>
       <div class="event-log" id="eventLog" role="log" aria-live="polite"></div>
       <div class="check-list" id="checkList" hidden></div>
@@ -90,52 +90,67 @@
   <div id="rightResizer" class="resizer right-resizer" role="separator" aria-label="Resize inspector" tabindex="0"></div>
   <aside class="right-sidebar" id="rightSidebar" aria-label="Engineering inspector">
     <div class="inspector-tabs">
-      <button class="inspector-tab active" data-inspector="properties">PROPERTIES</button>
-      <button class="inspector-tab" data-inspector="assistant">ASSISTANT</button>
-      <button class="inspector-tab" data-inspector="history">HISTORY</button>
+      <button class="inspector-tab active" data-inspector="properties">크기·모양</button>
+      <button class="inspector-tab" data-inspector="assistant">말로 수정</button>
+      <button class="inspector-tab" data-inspector="history">되돌리기</button>
     </div>
     <div class="inspector-scroll">
       <section id="propertiesPane">
-        <div class="section-heading top-heading"><span>PARAMETRIC MODEL</span><span class="verified-label">BROWSER MESH</span></div>
+        <div class="section-heading top-heading"><span>무엇을 바꿀까요?</span><span class="verified-label">브라우저에서 생성</span></div>
         <div class="model-header"><div class="model-icon">⬡</div><div><b id="modelTitle">2-DOF Research Arm</b><span id="modelSubtitle">3D geometry / parameters</span></div><span class="small-chevron">⋯</span></div>
-        <label class="field-label" for="templateSelect">DESIGN TEMPLATE</label>
+        <label class="field-label" for="templateSelect">① 만들 물건 선택</label>
         <select class="select-control" id="templateSelect">
-          <option value="arm">2-DOF Robot Arm</option>
-          <option value="plate">Mounting Plate</option>
-          <option value="block">Solid Block</option>
+          <option value="arm">🦾 움직이는 로봇팔</option>
+          <option value="plate">▭ 평평한 판</option>
+          <option value="block">◼ 네모 블록</option>
         </select>
-        <div class="section-heading section-heading-sm"><span>DIMENSIONS & PARAMETERS</span><span>mm / °</span></div>
-        <div id="dynamicFields" class="dynamic-fields"></div>
-        <label class="field-label" for="materialSelect">MATERIAL / DENSITY ESTIMATE</label>
+        <div class="section-heading section-heading-sm"><span>② 크기·움직임 조절</span><span>mm / °</span></div>
+        <p class="beginner-parameter-tip">모든 숫자의 단위는 <b>mm(밀리미터)</b>예요. 관절 각도는 °로 표시됩니다.</p><div id="dynamicFields" class="dynamic-fields"></div>
+        <label class="field-label" for="materialSelect">③ 어떤 재료로 만들까요?</label>
         <select class="select-control" id="materialSelect">
-          <option value="aluminum">Aluminum (2.70 g/cm³)</option>
-          <option value="petg">PETG (1.27 g/cm³)</option>
-          <option value="steel">Steel (7.85 g/cm³)</option>
+          <option value="aluminum">알루미늄 (가벼운 금속)</option>
+          <option value="petg">PETG (3D 프린터용 플라스틱)</option>
+          <option value="steel">강철 (무거운 금속)</option>
         </select>
-        <div class="mass-summary"><div><span>Estimated geometry volume</span><strong id="volumeEstimate">—</strong></div><div><span>Approx. material mass</span><strong id="massEstimate">—</strong></div></div>
-        <button class="apply-button" id="applyParametersButton">↻ Update mesh geometry</button>
-        <div class="note">Changes generate a <b>triangle mesh in your browser</b>, not a verified STEP/FreeCAD solid. Engineering checks are preliminary.</div>
-        <div class="section-heading section-heading-sm">QUICK ACTIONS</div>
-        <div class="quick-actions"><button id="duplicateButton">▣ Duplicate project</button><button id="exportStlButton">↧ Export STL</button><button id="exportJsonButton">↧ Export JSON</button></div>
+        <div class="mass-summary"><div><span>대략적인 부피</span><strong id="volumeEstimate">—</strong></div><div><span>예상 무게 (부품 겹침 포함)</span><strong id="massEstimate">—</strong></div></div>
+        <button class="apply-button" id="applyParametersButton">↻ 3D 모양에 적용하기</button>
+        <div class="note">지금 만드는 것은 <b>브라우저의 3D 미리보기 모델</b>이에요. 정밀 CAD·안전 검증이나 실제 제작 준비가 완료된 상태는 아니에요.</div>
+        <div class="section-heading section-heading-sm">다른 작업</div>
+        <div class="quick-actions"><button id="duplicateButton">▣ 복사 만들기</button><button id="exportStlButton">↓ 3D 파일</button><button id="exportJsonButton">↓ 백업</button></div>
       </section>
       <section id="assistantPane" hidden>
-        <div class="section-heading top-heading"><span>ENGINEERING ASSISTANT</span><span class="verified-label">RULE PARSER</span></div>
-        <div class="assistant-intro"><div class="assistant-orb">✧</div><b>Design by instruction</b><p>Use short commands to change supported dimensions. The public site does not call a hosted AI model.</p></div>
-        <div id="chatHistory" class="chat-history"><div class="chat-response">Try <b>link1 150 link2 100</b>, <b>angle1 45</b>, or <b>create mounting plate</b>.</div></div>
-        <div class="prompt-presets"><button class="prompt-preset" data-command="link1 150 link2 100">Extend links</button><button class="prompt-preset" data-command="angle1 45 angle2 -30">Change pose</button><button class="prompt-preset" data-command="create mounting plate">Create plate</button></div>
-        <label class="field-label" for="commandInput">NATURAL LANGUAGE / RULES</label>
-        <textarea id="commandInput" class="command-input" rows="5" placeholder="e.g., set link1 to 150 and angle2 to -30"></textarea>
-        <button class="apply-button" id="sendCommandButton">✧ Apply supported command</button>
-        <p class="note">No arbitrary code execution, API keys, billing or real robotics actuation.</p>
+        <div class="section-heading top-heading"><span>문장으로 수정하기</span><span class="verified-label">간단한 문장 인식</span></div>
+        <div class="assistant-intro"><div class="assistant-orb">✧</div><b>하고 싶은 변경을 적어보세요</b><p>지원하는 문장에 맞춰 숫자를 바꿉니다. 아직 실제 AI 모델과 연결되어 있지는 않아요.</p></div>
+        <div id="chatHistory" class="chat-history"><div class="chat-response">예: <b>첫 링크 150</b>, <b>관절 1 45</b>, <b>create plate</b></div></div>
+        <div class="prompt-presets"><button class="prompt-preset" data-command="link1 150 link2 100">팔 길게 만들기</button><button class="prompt-preset" data-command="angle1 45 angle2 -30">팔 각도 바꾸기</button><button class="prompt-preset" data-command="create mounting plate">판 만들기</button></div>
+        <label class="field-label" for="commandInput">바꾸고 싶은 점</label>
+        <textarea id="commandInput" class="command-input" rows="5" placeholder="예: 첫 링크 150, 관절 2 -30"></textarea>
+        <button class="apply-button" id="sendCommandButton">✧ 명령 적용하기</button>
+        <p class="note">실제 로봇은 움직이지 않아요. 이 화면은 로컬 3D 모델만 바꿉니다.</p>
       </section>
-      <section id="historyPane" hidden><div class="section-heading top-heading"><span>REVISION HISTORY</span><span class="verified-label">LOCAL ONLY</span></div><p class="note">Restore parameter snapshots stored on this device. No remote sync or collaboration.</p><div id="historyList" class="history-list"></div><div class="quick-actions"><button id="undoHistoryButton">↶ Undo</button><button id="redoHistoryButton">↷ Redo</button></div></section>
+      <section id="historyPane" hidden><div class="section-heading top-heading"><span>수정 기록</span><span class="verified-label">LOCAL ONLY</span></div><p class="note">이 기기에 저장된 수정 기록이에요. 이전 상태로 되돌릴 수 있어요.</p><div id="historyList" class="history-list"></div><div class="quick-actions"><button id="undoHistoryButton">↶ 이전으로</button><button id="redoHistoryButton">↷ 다시 실행</button></div></section>
     </div>
-    <div class="inspector-footer"><span class="green-dot"></span><span>LOCAL EDITING · NO SERVER CAD WORKER</span></div>
+    <div class="inspector-footer"><span class="green-dot"></span><span>로컬 미리보기 · 서버 CAD 미연결</span></div>
   </aside>
 </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<dialog id="exportDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>Export your project</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>Choose a local file export. STEP and fabrication validation require a separate CAD engine.</p><div class="export-choices"><button type="button" data-export="stl">◈ <span><b>STL mesh</b><small>Actual triangles · millimeter units</small></span><em>EXPORT ↧</em></button><button type="button" data-export="json">{} <span><b>Robot Forge JSON</b><small>Scene parameters · local backup</small></span><em>EXPORT ↧</em></button><button type="button" data-export="bom">▤ <span><b>Material BOM CSV</b><small>Estimated volumes and masses</small></span><em>EXPORT ↧</em></button></div></form></dialog>
-<dialog id="projectDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>Local projects</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>Projects are stored only in this browser. Export JSON to keep a backup.</p><div id="projectList" class="project-list"></div><label class="field-label" for="newProjectName">NEW PROJECT NAME</label><input id="newProjectName" class="text-input" maxlength="70" value="Untitled project"><div class="modal-actions"><button type="button" id="newProjectSubmit" class="apply-button">＋ Create project</button><button type="button" id="importJsonButton" class="secondary-button">↥ Import JSON</button></div><input type="file" id="importJsonFile" accept=".json,application/json" hidden></form></dialog>
+<dialog id="exportDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>파일로 저장하기</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>이 기기에 파일을 다운로드할 수 있어요. 정밀 STEP 파일과 실제 제작 검증은 아직 지원하지 않습니다.</p><div class="export-choices"><button type="button" data-export="stl">◈ <span><b>STL mesh</b><small>Actual triangles · millimeter units</small></span><em>EXPORT ↧</em></button><button type="button" data-export="json">{} <span><b>Robot Forge JSON</b><small>Scene parameters · local backup</small></span><em>EXPORT ↧</em></button><button type="button" data-export="bom">▤ <span><b>Material BOM CSV</b><small>Estimated volumes and masses</small></span><em>EXPORT ↧</em></button></div></form></dialog>
+<dialog id="projectDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>내 프로젝트</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>프로젝트는 이 브라우저에만 저장됩니다. 중요한 설계는 JSON 파일로 백업하세요.</p><div id="projectList" class="project-list"></div><label class="field-label" for="newProjectName">새 프로젝트 이름</label><input id="newProjectName" class="text-input" maxlength="70" value="Untitled project"><div class="modal-actions"><button type="button" id="newProjectSubmit" class="apply-button">＋ 새 프로젝트 만들기</button><button type="button" id="importJsonButton" class="secondary-button">↥ 백업 불러오기</button></div><input type="file" id="importJsonFile" accept=".json,application/json" hidden></form></dialog>
+<dialog id="welcomeDialog" class="welcome-dialog">
+  <div class="welcome-top"><span class="welcome-logo">⬡</span><span>ROBOT FORGE <strong>쉬운 시작</strong></span><button id="closeWelcomeButton" aria-label="안내 닫기">×</button></div>
+  <div class="welcome-content">
+    <div class="welcome-eyebrow">처음 시작하는 로봇 만들기</div>
+    <h2>무엇을 만들어 볼까요?</h2>
+    <p class="welcome-lead">전문 지식이 없어도 괜찮아요. 원하는 모양을 고르고 숫자만 바꿔보세요.</p>
+    <div class="welcome-cards">
+      <button class="welcome-card" data-start-template="arm"><span class="welcome-symbol">🦾</span><b>로봇팔 만들기</b><small>팔 길이와 구부리는 각도를 조절해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+      <button class="welcome-card" data-start-template="plate"><span class="welcome-symbol">▭</span><b>평평한 판 만들기</b><small>판의 가로·세로·두께를 정해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+      <button class="welcome-card" data-start-template="block"><span class="welcome-symbol">◼</span><b>네모 블록 만들기</b><small>작은 부품의 기본 모양을 만들어요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+    </div>
+    <p class="welcome-disclaimer">현재는 브라우저에서 3D 모양을 만드는 체험 기능입니다. 실제 로봇 제작·안전 검증 및 서버 기반 CAD는 아직 지원하지 않아요.</p>
+    <div class="welcome-footer"><button id="skipWelcomeButton">기존 모델로 계속하기</button><button id="welcomeExpertButton">전문가 화면으로 이동</button></div>
+  </div>
+</dialog>
 <script src="./workspace.js" defer></script>
 </body></html>
