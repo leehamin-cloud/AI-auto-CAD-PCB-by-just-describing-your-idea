@@ -204,9 +204,9 @@ function meshDiagnostics(items){
  return report;
 }
 
-function buildParts(){
- const p=current(),a=p.params;let out=[];
- if(p.model==="arm"){
+function buildParts(modelOverride,paramsOverride){
+ const p=current(),model=modelOverride||p.model,a=paramsOverride||p.params;let out=[];
+ if(model==="arm"){
   const t1=a.angle1*Math.PI/180,t2=(a.angle1+a.angle2)*Math.PI/180,L1=a.link1,L2=a.link2,w=a.width,h=a.thickness,z0=16;
   const s=[0,0,z0],j=[L1*Math.cos(t1),0,z0+L1*Math.sin(t1)],end=[j[0]+L2*Math.cos(t2),0,j[2]+L2*Math.sin(t2)];
   out.push(boxPart("base","Base platform",[0,0,0],[a.base,a.base*.8,16],0,colors[3]));
@@ -215,11 +215,11 @@ function buildParts(){
   out.push(cylinderPart("elbow","Elbow pivot",j,w*.54,w*1.22,colors[4]));
   out.push(boxPart("link2","Link 02 — forearm",[(j[0]+end[0])/2,0,(j[2]+end[2])/2],[L2,w*.83,h*.87],-t2,colors[1]));
   out.push(boxPart("tool","End tool bracket",[end[0]+9*Math.cos(t2),0,end[2]+9*Math.sin(t2)],[20,w*.9,h*.7],-t2,colors[5]));
- }else if(p.model==="plate"){
+ }else if(model==="plate"){
   out.push(meshPlatePart(a));
- }else if(p.model==="bracket"){
+ }else if(model==="bracket"){
   out.push(meshBracketPart(a));
- }else if(p.model==="shaft"){
+ }else if(model==="shaft"){
   out.push(cylinderPart("shaft","Solid circular shaft",[0,0,0],a.diameter/2,a.length,colors[1],48));
  }else {
   out.push(boxPart("block","Solid machined blank",[0,0,a.height/2],[a.length,a.width,a.height],0,colors[1]));
@@ -250,6 +250,23 @@ let viewCenter=[0,0,0],renderedFaces=[],viewScale=2;
 function project(v,w,h){const axis=cameraAxes(),d=sub3(v,viewCenter);return [w/2+cam.panX+dot(d,axis.right)*viewScale,h/2+cam.panY-dot(d,axis.up)*viewScale,dot(d,axis.forward)]}
 function hexRgb(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16))}
 function litColor(hex,shade){return "rgb("+hexRgb(hex).map(v=>Math.max(0,Math.min(255,Math.round(v*shade)))).join(",")+")"}
+let pendingCadPreview=null;
+function updateCadGhost(plan){
+ if(!plan||plan.kind!=="edit"||!plan.params||!Object.hasOwn(limits,plan.model)){
+  pendingCadPreview=null;
+ }else{
+  const error=validateDesign(plan.model,plan.params);
+  if(error){pendingCadPreview=null;return false}
+  try{pendingCadPreview={model:plan.model,params:{...plan.params},parts:buildParts(plan.model,plan.params),summary:plan.note||"수정 미리보기"}}
+  catch(e){pendingCadPreview=null;console.warn("Preview cannot generate geometry",e.message);return false}
+ }
+ const panel=$("#cadPreviewBanner");
+ if(panel){panel.hidden=!pendingCadPreview;
+  if(pendingCadPreview)panel.textContent="◈ 변경 예정 · "+pendingCadPreview.summary+" · 전송 전에는 저장되지 않습니다."}
+ scheduleDraw();
+ return Boolean(pendingCadPreview);
+}
+window.robotForgeCADPreview={set:updateCadGhost,clear:()=>updateCadGhost(null),get:()=>pendingCadPreview};
 let rafPending=false;
 function scheduleDraw(){if(rafPending)return;rafPending=true;requestAnimationFrame(()=>{rafPending=false;draw()})}
 function draw(){
@@ -269,6 +286,31 @@ function draw(){
   const coords=[[0,0,16],[a.link1*Math.cos(t1),0,16+a.link1*Math.sin(t1)],[a.link1*Math.cos(t1)+a.link2*Math.cos(t2),0,16+a.link1*Math.sin(t1)+a.link2*Math.sin(t2)]];
   coords.forEach((v,i)=>{const S=project(v,w,h);ctx.beginPath();ctx.arc(S[0],S[1],3.5,0,Math.PI*2);ctx.fillStyle="#e7faff";ctx.fill();ctx.fillStyle="#4e92b9";ctx.font="10px sans-serif";ctx.fillText(i===0?"J1":i===1?"J2":"TCP",S[0]+9,S[1]-8)});
  }
+
+ if(pendingCadPreview&&panel==="cad"){
+  // Ghost geometry uses identical view projection; never affects selection or STL export.
+  const overlayFaces=[];
+  for(const part of pendingCadPreview.parts)for(const t of part.triangles){
+   const points=t.map(v=>project(v,w,h));
+   const depth=(points[0][2]+points[1][2]+points[2][2])/3;
+   overlayFaces.push({points,depth});
+  }
+  overlayFaces.sort((a,b)=>a.depth-b.depth);
+  ctx.save();
+  ctx.setLineDash([3,3]);
+  for(const face of overlayFaces){
+   ctx.beginPath();
+   ctx.moveTo(face.points[0][0],face.points[0][1]);
+   ctx.lineTo(face.points[1][0],face.points[1][1]);
+   ctx.lineTo(face.points[2][0],face.points[2][1]);
+   ctx.closePath();
+   ctx.fillStyle="rgba(21,167,232,0.065)";
+   ctx.strokeStyle="rgba(6,118,203,0.28)";
+   ctx.lineWidth=.8;ctx.fill();ctx.stroke();
+  }
+  ctx.restore();
+ }
+
  $("#viewportStats").textContent=fmt(count,0)+" TRIANGLES · "+parts.length+" COMPONENTS";
 }
 function fit(){cam.panX=0;cam.panY=0;cam.zoom=1.08;scheduleDraw()}
@@ -354,7 +396,7 @@ function renderSummary(){
  $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>{const ko=beginnerParamLabels[key]||[label,""];const adv=(p.model==="arm"&&!simpleArmKeys.has(key))||(p.model==="plate"&&["offset_x","offset_y"].includes(key))?" advanced-parameter":"";const opts=key==="hole_count"?'<select class="select-control field-choice" id="param-hole_count" name="hole_count">'+[0,1,2,4].map(n=>'<option value="'+n+'" '+(p.params.hole_count===n?"selected":"")+'>'+n+'개</option>').join("")+'</select>':'<input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'">';return '<div class="param-row'+adv+'"><div class="param-head"><label for="param-'+key+'">'+esc(ko[0])+'</label><span class="param-unit">'+unit+'</span></div>'+opts+'<small class="param-help">'+esc(ko[1])+'</small></div>'}).join("");
  $("#viewportTitle").textContent=p.model==="arm"?"3D 로봇팔 미리보기":"3D 부품 미리보기";
 }
-function refresh(){rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
+function refresh(){if(pendingCadPreview)updateCadGhost(null);rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
 function editParams(){
  const p=current(),next={};
  for(const [key,label,min,max] of limits[p.model]){const input=$("#param-"+key);const n=Number(input.value);if(!input.value.trim()||!Number.isFinite(n)||n<min||n>max){input.focus();notify(label+" must be between "+min+" and "+max,true);return}next[key]=n}
@@ -367,6 +409,7 @@ function setTemplate(model){
  mutate(q=>{q.model=model;q.params=clone(defaults[model])},"Created "+modelNames[model]);fit();notify("Template loaded: "+modelNames[model]);
 }
 function activatePanel(name){
+ if(name!=="cad"&&pendingCadPreview)updateCadGhost(null);
  panel=name;$$("#navList .nav-option").forEach(x=>x.classList.toggle("active",x.dataset.panel===panel));
  const cad=name==="cad";$("#modelCanvas").hidden=!cad;$("#nonCadStage").hidden=cad;if($("#beginnerHelp"))$("#beginnerHelp").hidden=!cad||safeLocalGet("robotforge.guideHidden.v2")==="yes";$("#viewportTitle").textContent=cad?"3D 모델 보기":({simulation:"힘·움직임 계산",manufacturing:"설계 파일 받기",electronics:"전자회로 참고",wiring:"배선 참고",code:"코드",bom:"부품·재료 목록"}[name]||name);
  if(!cad)renderStage();else scheduleDraw();
