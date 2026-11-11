@@ -161,3 +161,16 @@ body:not(.focus-layout) .focus-advanced-return{display:inline-flex}
  body.focus-layout .cad-preview-banner{top:10px}
  body.focus-layout .chat-compose .command-input{min-height:86px}
 }
+
+
+/* Always retain a visible route back to the clean editor from advanced tools. */
+body:not(.focus-layout) .focus-more{
+ display:inline-flex!important;align-items:center;justify-content:center;
+ border:1px solid #c7e2f5;border-radius:9px;padding:9px 13px;
+ background:#edf8ff;color:#267cab;font-size:11px;font-weight:800;white-space:nowrap
+}
+body:not(.focus-layout) .focus-more:hover{background:#dbefff}
+body:not(.focus-layout) .focus-new-project{display:none!important}
+@media(max-width:680px){
+ body:not(.focus-layout) .focus-more{padding:8px 9px;font-size:10px}
+}
