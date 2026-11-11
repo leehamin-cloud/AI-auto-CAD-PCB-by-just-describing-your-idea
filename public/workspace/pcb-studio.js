@@ -158,6 +158,24 @@ function validate(b=board){
    if(gap<(a.width+b.width)/2+0.25)issues.push(a.id+"과 "+b.id+" 배선 사이의 간격이 부족합니다.");
   }
  }
+ const plannedSignals=logic.expected;
+ for(const track of b.traces)for(const via of (track.vias||[])){
+  if(via.x<1.5||via.y<1.5||via.x>b.width-1.5||via.y>b.height-1.5)
+   issues.push(track.id+" 비아가 기판 가장자리에 너무 가깝습니다.");
+  for(const p of allPads){
+   if(p.ref===track.a||p.ref===track.b||
+      (plannedSignals.get(p.ref)&&plannedSignals.get(p.ref)===plannedSignals.get(track.a)))continue;
+   const component=b.components.find(c=>p.ref.startsWith(c.id+":"));
+   const index=Number(p.ref.split(":")[1])-1,diameter=component?padDef(component,index).size[0]:2;
+   if(dist(via,p)<via.diameter/2+diameter/2+0.25)
+    issues.push(track.id+" 비아가 "+p.ref+" 패드와 너무 가깝습니다.");
+  }
+  for(const other of lines){
+   if(other.id===track.id)continue;
+   if(pointSegDist(via,other.start,other.end)<via.diameter/2+other.width/2+0.25)
+    issues.push(track.id+" 비아가 "+other.id+" 배선과 너무 가깝습니다.");
+  }
+ }
  for(const short of logic.shorts)issues.push("전기적 연결 충돌: "+short.groups.join(" ↔ ")+" 신호가 하나의 구리 배선으로 합쳐졌습니다.");
  for(const open of logic.opens)issues.push("필수 배선 누락: "+open.name+" ("+open.groups.length+"개로 분리된 연결)");
  for(const error of erc.errors)issues.push("핀 기능 검사: "+error);
