@@ -190,7 +190,7 @@ function initBeginnerUX(){
  $("#closeWelcomeButton").addEventListener("click",finishWelcome);
  $("#skipWelcomeButton").addEventListener("click",finishWelcome);
  $("#welcomeExpertButton").addEventListener("click",()=>{setUiMode("expert");finishWelcome()});
- $("[data-start-template]").forEach(button=>button.addEventListener("click",()=>{
+ $$("[data-start-template]").forEach(button=>button.addEventListener("click",()=>{
    setUiMode("beginner");
    const model=button.dataset.startTemplate;
    if(limits[model])setTemplate(model);
@@ -252,7 +252,7 @@ function renderStage(){
     html+='<div class="stage-cards"><div class="stage-card"><div class="small-heading">3D 파일</div><h3>STL 다운로드</h3><p>삼각형으로 이루어진 3D 모양이에요. 부품 간 간섭이나 강도 검사는 하지 않았어요.</p><button class="stage-action" data-stageexport="stl">↓ STL 파일 받기</button></div><div class="stage-card"><div class="small-heading">내 프로젝트 백업</div><h3>JSON 다운로드</h3><p>길이·각도·재료를 저장해 두었다가 이 사이트에서 다시 불러올 수 있어요.</p><button class="stage-action" data-stageexport="json">↓ 백업 파일 받기</button></div><div class="stage-card stage-full"><div class="warn-box">이 파일은 실제 제조 가능 여부를 검증하지 않은 미리보기예요. 공장에 바로 발주하지 마세요.</div></div></div>';
   }
   $("#nonCadStage").innerHTML=html;
-  $("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
+  $$("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
   return;
  }
  if(panel==="electronics"){
