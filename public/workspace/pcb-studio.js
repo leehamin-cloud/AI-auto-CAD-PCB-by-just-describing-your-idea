@@ -292,15 +292,79 @@ function renderNetEditor(){
  }
 }
 function setPcbView(name){
- if(!["layout","nets"].includes(name))return;
+ if(!["layout","nets","schematic"].includes(name))return;
  pcbView=name;routing=null;mousePoint=null;pointer=null;
- const a=$s("#pcbLayoutView"),b=$s("#pcbNetsView");
- for(const [node,on]of [[a,name==="layout"],[b,name==="nets"]]){
+ const a=$s("#pcbLayoutView"),b=$s("#pcbNetsView"),c=$s("#pcbSchematicView");
+ for(const [node,on]of [[a,name==="layout"],[b,name==="nets"],[c,name==="schematic"]]){
   node?.classList.toggle("active",on);node?.setAttribute("aria-pressed",String(on));
  }
  const svg=$s("#pcbSvg");if(svg)svg.style.cursor=name==="nets"?"default":"";
- const hint=$s("#pcbCanvasHint");if(hint)hint.textContent=name==="nets"?"핀 사이의 필수 연결 계획입니다. 실제 부품 회로도는 아닙니다.":"부품을 드래그하거나 패드 두 개를 눌러 배선을 만들 수 있어요.";
+ const hint=$s("#pcbCanvasHint");if(hint)hint.textContent=name==="nets"?"연결 계획의 핀별 배선 상태입니다.":name==="schematic"?"부품 심벌·핀 번호·신호를 표시하는 개념도입니다. 실제 KiCad 회로도가 아닙니다.":"부품을 드래그하거나 패드 두 개를 눌러 배선을 만들 수 있어요.";
  draw();
+}
+
+
+function updatePartEditor(){
+ const c=selected?.type==="component"?board.components.find(p=>p.id===selected.id):null;
+ const box=$s("#pcbPartSettings"),footprint=$s("#pcbFootprintSelect"),note=$s("#pcbFootprintInfo");
+ const rolePin=$s("#pcbPinRoleSelect"),roleType=$s("#pcbPinRoleType");
+ if(box)box.hidden=!c;
+ if(!c)return;
+ const profile=partlib.profileForKind(c.kind);
+ if(footprint){
+  const changed=footprint.dataset?.editing!==c.id;
+  if(changed){
+   footprint.innerHTML='<option value="">일반 예시 · 풋프린트 미지정</option>'+
+    (profile?'<option value="'+safe(profile.key)+'">'+safe(profile.label)+'</option>':'');
+   if(footprint.dataset)footprint.dataset.editing=c.id;
+  }
+  if(changed)footprint.value=c.profile||"";
+ }
+ if(note)note.textContent=partlib.description(c);
+ if(rolePin){
+  const pins=partlib.pins(c),changed=rolePin.dataset?.editing!==c.id;
+  if(changed){
+   rolePin.innerHTML=pins.map(p=>'<option value="'+p.pin+'">'+safe(p.ref+" · "+p.name)+'</option>').join("");
+   if(rolePin.dataset)rolePin.dataset.editing=c.id;
+   rolePin.value=String(pins[0]?.pin||1);
+  }
+  if(roleType)roleType.value=schem.role(c,Number(rolePin.value||1)-1);
+ }
+}
+function applyPartProfile(){
+ const c=selected?.type==="component"?board.components.find(p=>p.id===selected.id):null;
+ if(!c)return notice("풋프린트를 지정할 부품을 선택하세요.",true);
+ const profile=$s("#pcbFootprintSelect")?.value||"";
+ const allowed=partlib.profileForKind(c.kind);
+ if(profile&&(!allowed||profile!==allowed.key))return notice("지원되지 않는 부품 패드 규격입니다.",true);
+ const old=deep(board),draft=deep(board),target=draft.components.find(x=>x.id===c.id);
+ if(profile)target.profile=profile;else delete target.profile;
+ if(!isValidShape(draft))return notice("변경한 부품 규격이 현재 설계와 호환되지 않습니다.",true);
+ if(JSON.stringify(draft)===JSON.stringify(old))return notice("이미 선택한 규격입니다.");
+ const changed=transact(b=>{
+  const p=b.components.find(x=>x.id===c.id);
+  if(profile)p.profile=profile;else delete p.profile;
+ },"부품 규격 참고 정보 "+c.id+"를 변경했습니다. 실제 KiCad 라이브러리·실물 부품 검증은 필요합니다.");
+ if(changed){const issues=validate().issues;if(issues.length)notice("규격 변경 후 간격·연결 문제 "+issues.length+"건을 검토하세요.",true)}
+}
+function updateRoleInput(){
+ const c=selected?.type==="component"?board.components.find(p=>p.id===selected.id):null;
+ if(!c)return;
+ const type=$s("#pcbPinRoleType"),field=$s("#pcbPinRoleSelect");
+ if(type&&field)type.value=schem.role(c,Number(field.value||1)-1);
+}
+function applyPinRole(){
+ const c=selected?.type==="component"?board.components.find(p=>p.id===selected.id):null;
+ if(!c)return notice("핀 기능을 지정할 부품을 선택하세요.",true);
+ const pin=Number($s("#pcbPinRoleSelect")?.value||0),kind=$s("#pcbPinRoleType")?.value;
+ if(!Number.isInteger(pin)||pin<1||pin>partlib.pins(c).length||!schem.roles.has(kind))
+  return notice("유효한 핀 번호와 역할을 선택하세요.",true);
+ const ok=transact(b=>{
+  const p=b.components.find(item=>item.id===c.id);
+  if(!p.pinRoles)p.pinRoles={};
+  p.pinRoles[String(pin)]=kind;
+ },"핀 기능: "+c.id+":"+pin+" → "+kind+" (사용자 지정)");
+ if(ok)notice("핀 역할을 저장했습니다. 검사는 보조 규칙이며 정식 ERC가 아닙니다.");
 }
 
 function renderInspection(){
@@ -321,6 +385,17 @@ function renderInspection(){
    t?"배선 "+t.a+" → "+t.b:"선택한 항목 없음";
  }
  renderNetEditor();
+ updatePartEditor();
+ const ercBox=$s("#pcbErcSummary");
+ if(ercBox){
+  const erc=result.erc;
+  ercBox.textContent=(erc.errors.length?"⚠ 핀 기능 충돌 "+erc.errors.length+"건":"✓ 핀 기능 기초 규칙: 충돌 발견 없음")+
+   (erc.warnings.length?" · 주의 "+erc.warnings.length+"건":"")+
+   "\n"+erc.errors.slice(0,2).map(x=>"• "+x).join("\n")+
+   (erc.warnings.length?"\n"+erc.warnings.slice(0,2).map(x=>"• "+x).join("\n"):"")+
+   "\n실제 KiCad ERC 미실행 · 회로 전압/정격 미검증";
+  ercBox.classList.toggle("has-issues",Boolean(erc.errors.length));
+ }
   const stats=$s("#pcbCanvasStats");if(stats)stats.textContent=board.components.length+"개 부품 · "+board.traces.length+"개 배선 · "+result.issues.length+"개 검토 항목";
 }
 function view(){
@@ -371,6 +446,11 @@ function draw(){
   const inner=illustration.replace(/^<svg[^>]*>/,"").replace(/<\/svg>$/,"");
   svg.setAttribute("viewBox",vb?.[1]||"0 0 1000 640");
   svg.innerHTML=inner;
+ }else if(pcbView==="schematic"){
+  const diagram=schem.drawing(board);
+  const vb=diagram.match(/viewBox="([^"]+)"/);
+  svg.setAttribute("viewBox",vb?.[1]||"0 0 1100 640");
+  svg.innerHTML=diagram.replace(/^<svg[^>]*>/,"").replace(/<\/svg>$/,"");
  }else{
   svg.setAttribute("viewBox","0 0 1000 640");
   svg.innerHTML=shapeSvg();
@@ -479,8 +559,9 @@ function svgDocument(){
 function exportBoard(type){
  const state=board;
  let data="",mime="text/plain",extension=type;
- if(type==="json"){data=JSON.stringify({...state,disclaimer:"Local draft; not manufacturer-validated; no schematic connectivity validation"},null,2);mime="application/json"}
+ if(type==="json"){data=JSON.stringify({...state,disclaimer:"Educational schematic symbols and pin-rule checks, NOT KiCad ERC or manufacturer-verified footprints. Manual KiCad DRC and physical part matching required."},null,2);mime="application/json"}
  else if(type==="svg"){data=svgDocument();mime="image/svg+xml"}
+ else if(type==="schematic-svg"){data=schem.drawing(board);mime="image/svg+xml";extension="schematic.svg"}
  else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
  else if(type==="kicad"){data=kicadDraft();extension="kicad_pcb"}
  else return;
@@ -517,6 +598,10 @@ function bind(){
  $s("#rfPcbTab")?.addEventListener("click",open);
  $s("#pcbLayoutView")?.addEventListener("click",()=>setPcbView("layout"));
  $s("#pcbNetsView")?.addEventListener("click",()=>setPcbView("nets"));
+ $s("#pcbSchematicView")?.addEventListener("click",()=>setPcbView("schematic"));
+ $s("#pcbApplyFootprintButton")?.addEventListener("click",applyPartProfile);
+ $s("#pcbSavePinRoleButton")?.addEventListener("click",applyPinRole);
+ $s("#pcbPinRoleSelect")?.addEventListener("change",updateRoleInput);
  $s("#pcbAddNetButton")?.addEventListener("click",registerNet);
  $s("#pcbLoadExampleButton")?.addEventListener("click",loadExample);
  $s("#pcbNetList")?.addEventListener("click",e=>{
@@ -561,5 +646,5 @@ function bind(){
 }
 document.addEventListener("DOMContentLoaded",bind);
 window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,sizeUpdate,validate,showExport,exportBoard,
- test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
+ test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,updatePartEditor,applyPartProfile,applyPinRole,schem,partlib,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
 })();
