@@ -775,6 +775,23 @@ function exportBoard(type){
  const state=board;
  let data="",mime="text/plain",extension=type;
  if(type==="json"){data=JSON.stringify({...state,disclaimer:"Educational schematic symbols and pin-rule checks, NOT KiCad ERC or manufacturer-verified footprints. Manual KiCad DRC and physical part matching required."},null,2);mime="application/json"}
+ else if(type==="parts-csv"){
+  const csvCell=value=>{
+   let v=String(value??"");
+   if(/^\\s*[=+@-]/.test(v))v="'"+v; // Prevent CSV spreadsheet formula execution.
+   return '"'+v.replace(/"/g,'""')+'"';
+  };
+  const headings=["Ref","Kind","FootprintCandidate","Manufacturer","MPN","DatasheetHTTPS",
+   "SelfReviewed","MaxVoltageV","OperatingVoltageV","MaxCurrentMa","OperatingCurrentMa","DatasheetPitchMm","ManufacturerVerified"];
+  const rows=board.components.map(c=>{
+   const part=quality.getPart(c);
+   return [c.id,c.kind,partlib.get(c)?.footprint||"",part.manufacturer||"",part.mpn||"",
+    part.datasheetUrl||"",part.reviewedByUser?"self-declared":"no",
+    part.maxVoltageV,part.operatingVoltageV,part.maxCurrentMa,part.operatingCurrentMa,part.datasheetPitchMm,"NO"];
+  });
+  data="\\uFEFF"+[headings,...rows].map(r=>r.map(csvCell).join(",")).join("\\r\\n");
+  mime="text/csv";extension="parts.csv";
+ }
  else if(type==="svg"){data=svgDocument();mime="image/svg+xml"}
  else if(type==="schematic-svg"){data=schem.drawing(board);mime="image/svg+xml";extension="schematic.svg"}
  else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
