@@ -427,12 +427,39 @@ function renderProjectList(){
  const list=$("#projectList");list.innerHTML=projects.map(p=>'<div class="project-item"><div><strong>'+esc(p.name)+'</strong><small>'+esc(modelNames[p.model])+' · '+(p.history.length)+' revisions'+(p.id===activeId?' · Active':'')+'</small></div><button data-open="'+esc(p.id)+'">'+(p.id===activeId?'Open':'Switch')+'</button></div>').join("");
  $$("[data-open]").forEach(b=>b.addEventListener("click",()=>{activeId=b.dataset.open;persist();refresh();$("#projectDialog").close();log("PROJECT","Switched to "+current().name)}));
 }
+
+/* 2D CAD outline for drilled mounting plates. DXF coordinates are millimeters. */
+function plateHoleCenters(a){
+ const x=a.length/2-a.offset_x,y=a.width/2-a.offset_y;
+ if(a.hole_count===0)return [];
+ if(a.hole_count===1)return [[0,0]];
+ if(a.hole_count===2)return [[-x,0],[x,0]];
+ if(a.hole_count===4)return [[-x,-y],[x,-y],[x,y],[-x,y]];
+ return [];
+}
+function makePlateDxf(a){
+ const error=validateDesign("plate",a);if(error)throw Error(error);
+ const lines=["0","SECTION","2","HEADER","9","$ACADVER","1","AC1009","0","ENDSEC","0","SECTION","2","ENTITIES"];
+ const fmtD=v=>Number(v).toFixed(5);
+ const pts=[[-a.length/2,-a.width/2],[a.length/2,-a.width/2],[a.length/2,a.width/2],[-a.length/2,a.width/2]];
+ for(let i=0;i<4;i++){
+  const p=pts[i],q=pts[(i+1)%4];
+  lines.push("0","LINE","8","OUTLINE","10",fmtD(p[0]),"20",fmtD(p[1]),"30","0","11",fmtD(q[0]),"21",fmtD(q[1]),"31","0");
+ }
+ for(const [x,y]of plateHoleCenters(a)){
+  lines.push("0","CIRCLE","8","HOLES","10",fmtD(x),"20",fmtD(y),"30","0","40",fmtD(a.hole_diameter/2));
+ }
+ lines.push("0","ENDSEC","0","EOF");
+ return lines.join("\n");
+}
+
 function exportFile(type){
  const p=current(),base=p.name.toLowerCase().replace(/[^a-z0-9_-]+/g,"-").replace(/^-|-$/g,"")||"robot-forge";
  let blob,ext;
  if(type==="json"){const scene={format:"RobotForgeBrowserScene",version:1,name:p.name,model:p.model,params:p.params,material:p.material,disclaimer:"Browser triangle mesh only; not verified for fabrication"};blob=new Blob([JSON.stringify(scene,null,2)],{type:"application/json"});ext="json"}
  else if(type==="bom"){const rows=[["Component","Volume_mm3","Mass_g_estimate","Material"],...parts.map(x=>[x.label,x.volume.toFixed(3),(massFor(x.volume,p.material)*1000).toFixed(3),p.material])];blob=new Blob([rows.map(row=>row.map(c=>'"'+String(c).replaceAll('"','""')+'"').join(",")).join("\n")],{type:"text/csv;charset=utf-8"});ext="csv"}
  else if(type==="stl"){const health=meshDiagnostics(parts.filter(part=>!p.hiddenParts.includes(part.id)));if(!health.closed){notify("메시가 완전히 닫히지 않아 내보내기를 중단했어요.",true);return}let lines=["solid RobotForgeBrowserMesh"];for(const part of parts){if(p.hiddenParts.includes(part.id))continue;for(const v of part.triangles){const nn=unit(cross(sub3(v[1],v[0]),sub3(v[2],v[0])));lines.push("  facet normal "+nn.map(x=>x.toFixed(7)).join(" "),"    outer loop");for(const pt of v)lines.push("      vertex "+pt.map(x=>x.toFixed(5)).join(" "));lines.push("    endloop","  endfacet")}}lines.push("endsolid RobotForgeBrowserMesh");blob=new Blob([lines.join("\n")],{type:"model/stl"});ext="stl"}
+ else if(type==="dxf"){if(p.model!=="plate"){notify("DXF 평면도는 구멍판 모델에서만 만들 수 있어요.",true);return}blob=new Blob([makePlateDxf(p.params)],{type:"application/dxf"});ext="dxf"}
  else if(type==="obj"){let lines=["# Robot Forge browser mesh; units: mm","# Not a parametric CAD solid"],index=1;for(const part of parts){if(p.hiddenParts.includes(part.id))continue;lines.push("o "+part.id);for(const face of part.triangles){for(const v of face)lines.push("v "+v.map(n=>n.toFixed(6)).join(" "));lines.push("f "+index+" "+(index+1)+" "+(index+2));index+=3}}blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"});ext="obj"}
  else return;
  const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=base+"-"+type+"."+ext;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);log("EXPORT","Downloaded "+link.download);notify("Downloaded "+ext.toUpperCase()+" to your device");
