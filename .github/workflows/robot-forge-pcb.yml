@@ -9,6 +9,7 @@ on:
       - 'public/workspace/pcb-netlist.js'
       - 'public/workspace/pcb-parts.js'
       - 'public/workspace/pcb-schematic.js'
+      - 'public/workspace/pcb-kicad-schematic.js'
       - 'scripts/test-pcb-v26.cjs'
       - '.github/workflows/robot-forge-pcb.yml'
   workflow_dispatch:
@@ -41,10 +42,40 @@ jobs:
           sudo apt-get install -y --no-install-recommends kicad
           kicad-cli version
 
-      - name: Generate representative .kicad_pcb from browser exporter
+      - name: Generate PCB and experimental KiCad schematic from browser exporters
         run: |
           mkdir -p "$RUNNER_TEMP/robot-forge-pcb"
           OUTPUT_DIR="$RUNNER_TEMP/robot-forge-pcb" node scripts/test-pcb-v26.cjs
+
+      - name: Parse experimental KiCad schematic and extract electrical netlist
+        run: |
+          kicad-cli sch export netlist \
+            --format kicadsexpr \
+            -o "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.net" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
+          test -s "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.net"
+
+      - name: Render schematic SVG through KiCad
+        run: |
+          mkdir -p "$RUNNER_TEMP/robot-forge-pcb/schematic-svg"
+          kicad-cli sch export svg \
+            -o "$RUNNER_TEMP/robot-forge-pcb/schematic-svg" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
+
+      - name: Run official schematic ERC (violations block manufacture)
+        run: |
+          set +e
+          kicad-cli sch erc \
+            --format json --severity-all --exit-code-violations \
+            -o "$RUNNER_TEMP/robot-forge-pcb/official-erc.json" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
+          result=$?
+          set -e
+          echo "KiCad ERC exit code: $result" | tee "$RUNNER_TEMP/robot-forge-pcb/erc-status.txt"
+          if [ "$result" -ne 0 ]; then
+            echo "Formal ERC findings remain. This draft is not manufacturing-ready."
+            exit "$result"
+          fi
 
       - name: Verify KiCad can parse and render the draft
         run: |
@@ -71,7 +102,20 @@ jobs:
             exit "$exit_code"
           fi
 
-      - name: Upload generated draft and DRC report
+      - name: Export diagnostic Gerber and drill previews (only when ERC and DRC pass)
+        run: |
+          mkdir -p "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers"
+          kicad-cli pcb export gerbers \
+            --layers F.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts \
+            --output "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers/" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
+          kicad-cli pcb export drill \
+            --output "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers/" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
+          echo "DIAGNOSTIC PREVIEW ONLY. Footprint geometry and real component datasheets are unverified." \
+            > "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers/NOT_FOR_MANUFACTURING.txt"
+
+      - name: Upload generated drafts, ERC and DRC reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
