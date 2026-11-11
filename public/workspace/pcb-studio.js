@@ -325,27 +325,28 @@ function kicadDraft(b=board){
  // Not verified by KiCad CLI: this is a starter file only, not manufacturing output.
  const connections=unionNets(b),q=s=>'"'+String(s).replace(/["\\]/g,"")+'"',f=n=>Number(n).toFixed(4),line=[];
  const getNet=ref=>connections.nets.get(ref)||0,netName=n=>n?connections.netNames[n-1]?.name||"":"";
- line.push('(kicad_pcb (version 20241229) (generator "robot_forge")',
-  ' (general (thickness 1.6))',' (paper "A4")',
+ line.push('(kicad_pcb (version 20241229) (generator "robot_forge") (generator_version "9.0")',
+  ' (general (thickness 1.6) (legacy_teardrops no))',' (paper "A4")',
   ' (layers (0 "F.Cu" signal) (31 "B.Cu" signal) (37 "F.SilkS" user) (44 "Edge.Cuts" user))',
   ' (setup (pad_to_mask_clearance 0))',' (net 0 "")');
  for(const net of connections.netNames)line.push(' (net '+net.number+' '+q(net.name)+')');
- line.push(' (gr_rect (start 0 0) (end '+f(b.width)+' '+f(b.height)+') (stroke (width 0.05) (type default)) (fill none) (layer "Edge.Cuts") (uuid '+uid("outline") +'))');
+ line.push(' (gr_rect (start 0 0) (end '+f(b.width)+' '+f(b.height)+') (stroke (width 0.05) (type default)) (fill none) (layer "Edge.Cuts") (uuid "'+uid("outline") +'"))');
  for(const c of b.components){
   const comp=lib[c.kind];
-  line.push(' (footprint '+q("RobotForge:"+c.kind)+' (layer "F.Cu") (at '+f(c.x)+' '+f(c.y)+' '+c.rotation+') (uuid '+uid("fp"+c.id)+')');
+  line.push(' (footprint '+q("RobotForge:"+c.kind)+' (layer "F.Cu") (at '+f(c.x)+' '+f(c.y)+' '+c.rotation+') (uuid "'+uid("fp"+c.id)+'")');
   line.push('  (property "Reference" '+q(c.id)+' (at 0 '+f(-comp.h/2-2.5)+') (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (property "Value" '+q(comp.label)+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
+  line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
    const p=comp.pads[i],ref=c.id+":"+(i+1),net=getNet(ref);
-   line.push('  (pad '+q(i+1)+' thru_hole circle (at '+f(p[0])+' '+f(p[1])+') (size 2 2) (drill 0.9) (layers "*.Cu" "*.Mask") (net '+net+' '+q(netName(net))+') (uuid '+uid("pad"+ref)+'))');
+   line.push('  (pad '+q(i+1)+' thru_hole circle (at '+f(p[0])+' '+f(p[1])+') (size 2 2) (drill 0.9) (layers "*.Cu" "*.Mask") (net '+net+' '+q(netName(net))+') (uuid "'+uid("pad"+ref)+'"))');
   }
   line.push(' )');
  }
  for(const t of trackLines(b)){
   const net=getNet(t.a),p=t.start,r=t.end;
-  line.push(' (segment (start '+f(p.x)+' '+f(p.y)+') (end '+f(r.x)+' '+f(r.y)+') (width '+f(t.width)+') (layer "F.Cu") (net '+net+') (uuid '+uid(t.id)+'))');
+  line.push(' (segment (start '+f(p.x)+' '+f(p.y)+') (end '+f(r.x)+' '+f(r.y)+') (width '+f(t.width)+') (layer "F.Cu") (net '+net+') (uuid "'+uid(t.id)+'"))');
  }
  line.push(')');
  return line.join("\n");
