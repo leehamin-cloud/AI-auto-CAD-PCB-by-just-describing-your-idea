@@ -132,3 +132,12 @@ body.beginner-mode .assembly-scroll{padding-top:5px}
  .welcome-top{padding:0 17px}
  .welcome-content h2{letter-spacing:-1.3px}
 }
+
+/* CAD features v2.1 */
+.mesh-health{margin:0 18px 15px;padding:12px 13px;color:#cefab9;background:#1d3321;border:1px solid #446b44;border-radius:8px;font-size:11px;font-weight:750;line-height:1.5}
+.mesh-health.mesh-warn{color:#ffe0ae;background:#3c2b1e;border-color:#87643f}
+.dynamic-fields .select-control.field-choice{display:block;margin:0;width:100%;max-width:none;font-size:13px}
+body.beginner-mode .param-row.advanced-parameter{display:none!important}
+body.beginner-mode .welcome-dialog .welcome-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+body.beginner-mode .welcome-card{min-height:205px}
+@media(max-width:780px){body.beginner-mode .welcome-dialog .welcome-cards{grid-template-columns:1fr}body.beginner-mode .welcome-card{min-height:unset}}
