@@ -6,7 +6,7 @@ This service is **disabled** unless two private environment variables are set in
 
 - `OPENAI_API_KEY`: your own OpenAI Platform API key (never put this in the public Git repo or HTML)
 - `AI_ACCESS_CODE`: a separately created, long random secret used to authorize requests to this prototype API
-- Optional `OPENAI_MODEL`: an available OpenAI Responses model; default `gpt-6-luna`
+- Optional `OPENAI_MODEL`: an available OpenAI Responses model; default `gpt-5-mini`
 
 Until configured, `GET /api/status` returns `enabled: false`, and `POST /api/plan` returns HTTP 503.
 
