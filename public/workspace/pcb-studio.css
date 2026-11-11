@@ -1,0 +1,88 @@
+/* Robot Forge PCB Studio v2.5 — light, minimal, browser-local editor */
+.rf-studio-switch{display:inline-flex;gap:3px;padding:4px;border:1px solid #d8e9f6;background:#f1f8fe;border-radius:12px;align-items:center;flex:none}
+.rf-studio-button{border:0;border-radius:9px;padding:9px 12px;background:transparent;color:#7993a8;font-size:11px;font-weight:850;white-space:nowrap}
+.rf-studio-button.active{background:#fff;color:#138ac8;box-shadow:0 2px 9px #327bad15}
+.rf-studio-button:hover{color:#0d78b0}
+body.pcb-mode .focus-template-control,body.pcb-mode .toolbar-group,body.pcb-mode .toolbar-right,
+body.pcb-mode .document-tabs,body.pcb-mode .bottom-panel,body.pcb-mode .statusbar,
+body.pcb-mode .left-sidebar,body.pcb-mode .left-resizer,body.pcb-mode .right-resizer,
+body.pcb-mode .canvas-wrap>#modelCanvas,body.pcb-mode .canvas-wrap>#nonCadStage,
+body.pcb-mode .canvas-wrap>.beginner-help,body.pcb-mode .canvas-wrap>.ai-canvas-entry,
+body.pcb-mode .canvas-wrap>.cad-preview-banner,body.pcb-mode .canvas-wrap>.selection-quick-edit,
+body.pcb-mode .canvas-wrap>.viewport-label,body.pcb-mode .canvas-wrap>.viewport-help,
+body.pcb-mode .canvas-wrap>.axis-widget,body.pcb-mode .canvas-wrap>.viewport-bottom,
+body.pcb-mode .canvas-wrap>.view-float{display:none!important}
+body.pcb-mode .inspector-tabs,body.pcb-mode .inspector-scroll,body.pcb-mode .inspector-footer{display:none!important}
+body.pcb-mode .center-column{min-width:0;min-height:0}
+body.pcb-mode .workspace-shell{grid-template-columns:minmax(0,1fr) 350px}
+body.pcb-mode .toolbar{background:#fff;min-height:54px;height:54px;justify-content:flex-start}
+body.pcb-mode .toolbar::before{content:"▦ PCB 편집 · 단면 배선 초안";font-size:12px;font-weight:800;color:#3c7a9f}
+body.pcb-mode .canvas-wrap{flex:1;min-height:0;background:#f5faff;overflow:hidden;position:relative}
+body.pcb-mode .pcb-stage{position:absolute;inset:0;display:flex!important;flex-direction:column;min-height:0;background:#f5faff}
+body.pcb-mode .pcb-stage[hidden]{display:none!important}
+.pcb-canvas-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;padding:14px 19px 10px;color:#788da1;font-size:11px}
+.pcb-canvas-title{font-weight:900;letter-spacing:.7px;color:#447a9f;font-size:10px}
+.pcb-svg-holder{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0 12px}
+#pcbSvg{width:100%;height:100%;max-height:100%;background:linear-gradient(145deg,#fbfdff,#eef7fd);border:1px solid #deecf5;border-radius:15px;touch-action:none;user-select:none}
+#pcbSvg .pcb-board{fill:#d9f2ef;stroke:#498b90;stroke-width:.4;filter:drop-shadow(0 2px 3px #2054701d)}
+#pcbSvg .pcb-grid{stroke:#78aab025;stroke-width:.10;pointer-events:none}
+#pcbSvg .pcb-board-outline{fill:none;stroke:#3e8d88;stroke-width:.35;pointer-events:none}
+#pcbSvg .pcb-comp-body{fill:#fcffff;stroke:#67a0ad;stroke-width:.28}
+#pcbSvg .pcb-comp-selected .pcb-comp-body{stroke:#1b8ddd;stroke-width:.65;fill:#eff9ff}
+#pcbSvg .pcb-comp-label{font-family:Inter,ui-sans-serif,system-ui,sans-serif;font-size:2.2px;fill:#235579;text-anchor:middle;font-weight:750;pointer-events:none}
+#pcbSvg [data-component]{cursor:grab}
+#pcbSvg [data-component]:active{cursor:grabbing}
+#pcbSvg [data-pad]{cursor:crosshair}
+#pcbSvg .pcb-pad{fill:#d59b4d;stroke:#fff5d2;stroke-width:.25}
+#pcbSvg .pcb-pad.selected{fill:#2a93d1;stroke:#fff;stroke-width:.5}
+#pcbSvg .pcb-pad-text{font-size:1.4px;fill:#5f401d;text-anchor:middle;pointer-events:none}
+#pcbSvg .pcb-trace{stroke:#df7a55;stroke-linecap:round;cursor:pointer}
+#pcbSvg .pcb-trace.selected{stroke:#ee3e53}
+#pcbSvg .pcb-wire-preview{stroke:#1689d5;stroke-width:.5;stroke-dasharray:1 1;pointer-events:none}
+#pcbSvg .pcb-board-mm{font-size:2px;fill:#46787e;text-anchor:middle}
+.pcb-canvas-bottom{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 20px;color:#7a96a8;font-size:11px}
+.pcb-inspector{display:none;min-height:0;flex-direction:column;background:#fff;height:100%;overflow:hidden}
+body.pcb-mode .pcb-inspector{display:flex!important}
+.pcb-inspector-header{display:flex;align-items:center;gap:12px;padding:20px 17px;border-bottom:1px solid #e3eef6}
+.pcb-head-icon{width:39px;height:39px;flex:none;border-radius:11px;background:#e6f5ff;display:grid;place-items:center;color:#2393d0;font-size:22px}
+.pcb-inspector-header>div{flex:1;min-width:0}
+.pcb-inspector-header strong{display:block;color:#2c526b;font-size:14px}
+.pcb-inspector-header small{display:block;color:#91a6b6;font-size:10px;margin-top:4px;line-height:1.4}
+.pcb-draft-pill{background:#eaf5ff;padding:5px 7px;color:#308cc2;border-radius:6px;font-size:10px;font-weight:750}
+.pcb-inspector-scroll{flex:1;overflow:auto;padding:14px 17px 30px}
+.pcb-small-label{font-size:10px;color:#6286a0;letter-spacing:.3px;font-weight:850;margin:6px 0 11px}
+.pcb-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pcb-add-grid button{background:#f8fbff;border:1px solid #dceaf4;border-radius:9px;padding:11px 8px;color:#3b6d8c;text-align:left;font-weight:700;font-size:11px}
+.pcb-add-grid button:hover{background:#e7f5ff;border-color:#a6d8f8;color:#167eb6}
+.pcb-divider{height:1px;background:#e6eff7;margin:17px 0}
+.pcb-tool-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.pcb-tool-row button{background:#f5faff;border:1px solid #dceaf6;border-radius:8px;padding:10px 5px;color:#7693a9;font-size:10px;font-weight:750}
+.pcb-tool-row button.active{background:#e1f2ff;border-color:#a6d6f7;color:#0c81ba}
+.pcb-instruction{font-size:11px;color:#7c94a5;line-height:1.6;margin:12px 0}
+.pcb-selection{font-size:11px;background:#f6fbff;border:1px solid #e1edf7;padding:12px;border-radius:8px;color:#497b99;min-height:42px;display:flex;align-items:center;gap:6px}
+.pcb-selection-actions{display:flex;gap:7px;margin-top:9px}
+.pcb-selection-actions button,.pcb-secondary-wide{background:#fff;color:#5284a3;border:1px solid #d9e8f4;border-radius:8px;padding:10px;font-size:11px;font-weight:750}
+.pcb-selection-actions button{flex:1}
+.pcb-selection-actions button:hover,.pcb-secondary-wide:hover{background:#ebf7ff;border-color:#acd9f8}
+.pcb-dimensions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pcb-dimensions label{color:#8099aa;font-size:11px;font-weight:650}
+.pcb-dimensions input,.pcb-dimensions select{display:block;margin-top:7px;width:100%;min-width:0;max-width:100%;background:#f9fcff;color:#2f5b79;border:1px solid #d6e5ef;border-radius:8px;padding:10px;font-size:12px}
+.pcb-dimensions label:nth-child(3){grid-column:1/-1}
+.pcb-secondary-wide{width:100%;margin-top:10px}
+.pcb-validation{padding:12px;background:#f0f9ff;border:1px solid #d8ecfb;border-radius:10px;color:#4f7c9e;line-height:1.7;font-size:11px;white-space:pre-line}
+.pcb-validation.has-issues{background:#fff6ea;border-color:#f0d9b7;color:#996b38}
+.pcb-disclaimer{font-size:10px;color:#91a3b1;line-height:1.65;margin:16px 0}
+.pcb-bottom-actions{display:flex;gap:9px;padding:14px 16px 17px;border-top:1px solid #e4eef6;background:#fff}
+.pcb-bottom-actions button{flex:1;padding:12px 10px;border-radius:9px;font-size:11px;font-weight:800;border:1px solid #cfe4f4;background:#eff8ff;color:#377faa}
+#pcbExportButton{background:#279adf;border-color:#279adf;color:white}
+#pcbExportButton:hover{background:#127dc2}
+.pcb-export-dialog{background:#fff;border:1px solid #cbe6f6;color:#315776;border-radius:17px;box-shadow:0 30px 80px #31547145;padding:20px;width:min(455px,95vw)}
+.pcb-export-dialog::backdrop{background:#173b5370}
+.pcb-export-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pcb-export-title strong{font-size:19px}
+.pcb-export-title button{border:0;background:#eef8ff;border-radius:8px;color:#5f91ab;font-size:20px;padding:4px 10px}
+.pcb-export-dialog p{font-size:12px;color:#8198a9;line-height:1.7;margin-bottom:16px}
+.pcb-export-dialog button[data-pcb-export]{display:block;width:100%;text-align:left;padding:14px;border:1px solid #dceaf6;border-radius:9px;background:#f8fbfe;color:#427899;font-size:12px;font-weight:750;margin:8px 0}
+.pcb-export-dialog button[data-pcb-export]:hover{background:#e9f6ff}
+@media(max-width:1150px){body.pcb-mode .workspace-shell{grid-template-columns:minmax(0,1fr) 315px}.pcb-inspector-header{padding:15px 12px}.pcb-inspector-scroll{padding:12px}.pcb-canvas-top{padding:13px 11px}}
+@media(max-width:680px){body.pcb-mode #app{height:auto;overflow:visible}body.pcb-mode .workspace-shell{display:flex;flex-direction:column;min-height:0;overflow:visible}body.pcb-mode .center-column{min-height:0;overflow:visible}body.pcb-mode .canvas-wrap{height:375px;min-height:375px;flex:none}body.pcb-mode .right-sidebar{height:auto;min-height:0;overflow:visible;border-left:0;border-top:1px solid #e0edf5}body.pcb-mode .pcb-inspector{height:auto;min-height:560px;overflow:visible}body.pcb-mode .pcb-inspector-scroll{overflow:visible;padding:16px}body.pcb-mode .toolbar{height:46px;min-height:46px}body.pcb-mode .rf-studio-switch{order:1}body.pcb-mode .brand{order:0}body.pcb-mode .breadcrumbs{order:2}body.pcb-mode .pcb-bottom-actions{position:sticky;bottom:0;box-shadow:0 -5px 15px #538bb51b}#pcbSvg{border-radius:10px}.rf-studio-switch{gap:0;padding:3px}.rf-studio-button{padding:8px;font-size:10px}.pcb-canvas-top{font-size:9px;padding:10px 10px 5px}.pcb-canvas-bottom{font-size:9px;padding:8px 10px}}
