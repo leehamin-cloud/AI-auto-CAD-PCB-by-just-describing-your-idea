@@ -374,7 +374,7 @@ function renderInspection(){
   field.textContent=(result.issues.length?"⚠ 초안 간격 검사: 문제 "+result.issues.length+"건":"✓ 간격·교차 기초 검사: 발견된 오류 없음")+
    "\n"+result.insights.join("\n")+
    (first?"\n"+first:"")+
-   "\n\n※ 회로도 연결·공식 DRC는 미검증";
+   "\n\n※ 로컬 검사만 수행 · KiCad ERC/DRC 및 실제 부품 검증 미완료 · 제조 승인 불가";
   field.classList.toggle("has-issues",Boolean(result.issues.length));
  }
  const selection=$s("#pcbSelection");
@@ -564,6 +564,23 @@ function exportBoard(type){
  else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
  else if(type==="kicad"){data=kicadDraft();extension="kicad_pcb"}
  else if(type==="kicad-sch"){try{data=kicadSchematic.generate(board)}catch(e){notice("KiCad 회로도 내보내기 중단: "+(e?.message||String(e)),true);return null}extension="kicad_sch"}
+ else if(type==="validation"){
+  const result=validate(),profile=partlib.report(board),exported={
+   format:"RobotForgePCBValidationManifest",version:1,scope:"browser_preliminary_checks",
+   design:{board:{width_mm:board.width,height_mm:board.height},components:board.components.length,
+    tracks:board.traces.length,logical_nets:netlib.netPlan(board).length},
+   browser_checks:{errors:result.issues,warnings:result.warnings,
+     missing_connections:result.opens,logical_shorts:result.shorts,
+     pin_rule_errors:result.erc.errors,pin_rule_warnings:result.erc.warnings},
+   footprint_reference:{selected:profile.selected,total:profile.all,manufacturer_verified:false,
+     real_library_geometry_imported:false},
+   official_checks:{kicad_schematic_parsed:false,erc_passed:false,drc_passed:false,
+     gerber_fabrication_authorized:false},
+   outcome:"BLOCKED_FOR_MANUFACTURING",
+   notice:"This manifest only describes local heuristic checks. Do not fabricate or energize the design until independent validation."
+  };
+  data=JSON.stringify(exported,null,2);extension="validation.json";mime="application/json";
+ }
  else return;
  const blob=new Blob([data],{type:mime+";charset=utf-8"}),url=URL.createObjectURL(blob);
  const a=document.createElement("a");a.href=url;a.download="robot-forge-pcb-draft."+extension;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
