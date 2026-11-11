@@ -7,8 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
-const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic;
-if(!partlib||!schem||!kicadSchematic)throw Error("PCB catalog, schematic and KiCad export modules are required");
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity;
+if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit)throw Error("PCB parts, pad dimensions, parity, schematic and KiCad export modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -30,6 +30,8 @@ if(!netlib)throw Error("PCB netlist module was not loaded");
 const traceWidths=new Set([0.3,0.5,0.8,1]);
 const snap=n=>Math.round(n*2)/2;
 const geometry=c=>partlib.geometric(c,lib[c.kind]);
+const padDef=(c,index)=>precisePads.pads(c)?.[index]||{pin:index+1,shape:"circle",size:[2,2],drill:0.9};
+const parityFor=b=>parityAudit.parity(b,{pads,unionNets});
 function isValidShape(b){
  if(!b||b.format!=="RobotForgePCB"||b.version!==1||!Number.isFinite(b.width)||!Number.isFinite(b.height)||b.width<40||b.width>220||b.height<30||b.height>160)return false;
  if(!Array.isArray(b.components)||!Array.isArray(b.traces)||b.components.length>100||b.traces.length>300)return false;
@@ -369,6 +371,17 @@ function applyPinRole(){
 
 function renderInspection(){
  const result=validate(),field=$s("#pcbValidation");
+ const audit=parityFor(board),auditField=$s("#pcbParityStatus");
+ if(auditField){
+  const count=audit.errors.length,warnings=audit.warnings.length;
+  auditField.textContent=(count?"⚠ 핀·신호 일치 오류 "+count+"건":"✓ 등록된 회로도 핀·신호 대조: 발견된 충돌 없음")+
+   (warnings?" · 검토 "+warnings+"건":"")+
+   "\nKiCad 원본 패드 데이터 적용: "+audit.summary.referencePadCount+"개 패드 / "+
+   audit.summary.preciseFootprintCount+"개 부품"+
+   (count?"\n• "+audit.errors.slice(0,2).join("\n• "):"")+
+   "\n※ 완전한 실물 풋프린트 및 공식 KiCad ERC/DRC 검증은 별도";
+  auditField.classList.toggle("has-issues",count>0);
+ }
  if(field){
   const first=result.issues.slice(0,3).map(s=>"• "+s).join("\n");
   field.textContent=(result.issues.length?"⚠ 초안 간격 검사: 문제 "+result.issues.length+"건":"✓ 간격·교차 기초 검사: 발견된 오류 없음")+
@@ -413,7 +426,13 @@ function shapeSvg(b=board){
  }).join("");
  const components=b.components.map(c=>{
   const shape=geometry(c);const on=selected?.type==="component"&&selected.id===c.id?" pcb-comp-selected":"";
-  const padHtml=shape.pads.map((p,i)=>'<circle class="pcb-pad'+(routing===c.id+":"+(i+1)?" selected":"")+'" data-pad="'+c.id+":"+(i+1)+'" cx="'+num(p[0])+'" cy="'+num(p[1])+'" r="1.05" />').join("");
+  const padHtml=shape.pads.map((p,i)=>{
+    const spec=padDef(c,i),cls=' class="pcb-pad'+(routing===c.id+":"+(i+1)?' selected':'')+'" data-pad="'+c.id+":"+(i+1)+'"';
+    const w=spec.size[0],h=spec.size[1];
+    if(spec.shape==="circle")return '<circle'+cls+' cx="'+num(p[0])+'" cy="'+num(p[1])+'" r="'+num(Math.min(w,h)/2)+'"/>';
+    const radius=spec.shape==="oval"?num(Math.min(w,h)/2):"0.12";
+    return '<rect'+cls+' x="'+num(p[0]-w/2)+'" y="'+num(p[1]-h/2)+'" width="'+num(w)+'" height="'+num(h)+'" rx="'+radius+'"/>';
+  }).join("");
   const label='<text class="pcb-comp-label" x="0" y="'+num(-shape.h/2-2)+'">'+c.id+'</text>';
   return '<g data-component="'+c.id+'" class="pcb-component'+on+'" transform="translate('+num(c.x)+' '+num(c.y)+') rotate('+c.rotation+')">'+
    '<rect class="pcb-comp-body" x="'+num(-shape.w/2)+'" y="'+num(-shape.h/2)+'" width="'+shape.w+'" height="'+shape.h+'" rx=".8"/>'+label+padHtml+'</g>';
@@ -534,7 +553,10 @@ function kicadDraft(b=board){
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
    const p=comp.pads[i],ref=c.id+":"+(i+1),net=getNet(ref);
-   line.push('  (pad '+q(i+1)+' thru_hole circle (at '+f(p[0])+' '+f(p[1])+') (size 2 2) (drill 0.9) (layers "*.Cu" "*.Mask") (net '+net+' '+q(netName(net))+') (uuid "'+uid("pad"+ref)+'"))');
+   const spec=padDef(c,i);
+   line.push('  (pad '+q(i+1)+' thru_hole '+spec.shape+' (at '+f(p[0])+' '+f(p[1])+')'+
+    ' (size '+f(spec.size[0])+' '+f(spec.size[1])+') (drill '+f(spec.drill)+')'+
+    ' (layers "*.Cu" "*.Mask") (net '+net+' '+q(netName(net))+') (uuid "'+uid("pad"+ref)+'"))');
   }
   line.push(' )');
  }
@@ -564,12 +586,13 @@ function exportBoard(type){
  else if(type==="netlist"){const status=netlib.graph(board,pads(board),unionNets(board));data=JSON.stringify({format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",nets:netlib.netPlan(board),status:{opens:status.opens,shorts:status.shorts},disclaimer:"Logical pin requirements only. Not a KiCad schematic or ERC result."},null,2);mime="application/json";extension="netlist.json"}
  else if(type==="kicad"){data=kicadDraft();extension="kicad_pcb"}
  else if(type==="kicad-sch"){try{data=kicadSchematic.generate(board)}catch(e){notice("KiCad 회로도 내보내기 중단: "+(e?.message||String(e)),true);return null}extension="kicad_sch"}
+ else if(type==="parity"){data=JSON.stringify(parityAudit.manifest(board,{pads,unionNets}),null,2);extension="parity.json";mime="application/json"}
  else if(type==="validation"){
   const result=validate(),profile=partlib.report(board),exported={
    format:"RobotForgePCBValidationManifest",version:1,scope:"browser_preliminary_checks",
    design:{board:{width_mm:board.width,height_mm:board.height},components:board.components.length,
     tracks:board.traces.length,logical_nets:netlib.netPlan(board).length},
-   browser_checks:{errors:result.issues,warnings:result.warnings,
+   browser_checks:{errors:result.issues,warnings:result.warnings,parity:parityFor(board),
      missing_connections:result.opens,logical_shorts:result.shorts,
      pin_rule_errors:result.erc.errors,pin_rule_warnings:result.erc.warnings},
    footprint_reference:{selected:profile.selected,total:profile.all,manufacturer_verified:false,
