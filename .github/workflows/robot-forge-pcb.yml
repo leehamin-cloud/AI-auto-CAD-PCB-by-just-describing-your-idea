@@ -8,9 +8,12 @@ on:
       - 'public/workspace/pcb-studio.js'
       - 'public/workspace/pcb-netlist.js'
       - 'public/workspace/pcb-parts.js'
+      - 'public/workspace/pcb-pad-library.js'
+      - 'public/workspace/pcb-parity.js'
       - 'public/workspace/pcb-schematic.js'
       - 'public/workspace/pcb-kicad-schematic.js'
       - 'scripts/test-pcb-v26.cjs'
+      - 'scripts/verify-kicad-parity.py'
       - '.github/workflows/robot-forge-pcb.yml'
   workflow_dispatch:
 
@@ -54,6 +57,12 @@ jobs:
             -o "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.net" \
             "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
           test -s "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.net"
+          kicad-cli sch export netlist \
+            --format kicadxml \
+            -o "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.xml" \
+            "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
+          test -s "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.xml"
+
 
       - name: Render schematic SVG through KiCad
         run: |
@@ -83,6 +92,14 @@ jobs:
             --layers F.Cu,Edge.Cuts \
             --output "$RUNNER_TEMP/robot-forge-pcb/svg" \
             "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
+
+      - name: Independently compare KiCad schematic XML with PCB pads and nets
+        run: |
+          python3 scripts/verify-kicad-parity.py \
+            --manifest "$RUNNER_TEMP/robot-forge-pcb/robot-forge-parity.json" \
+            --pcb "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb" \
+            --schematic-xml "$RUNNER_TEMP/robot-forge-pcb/parsed-schematic.xml" \
+            --report "$RUNNER_TEMP/robot-forge-pcb/ki-cad-file-parity.json"
 
       - name: Run official KiCad PCB DRC and record findings
         id: drc
