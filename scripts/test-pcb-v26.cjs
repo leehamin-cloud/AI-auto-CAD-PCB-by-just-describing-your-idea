@@ -34,6 +34,7 @@ run("public/workspace/pcb-pad-library.js");
 run("public/workspace/pcb-schematic.js");
 run("public/workspace/pcb-parity.js");
 run("public/workspace/pcb-kicad-schematic.js");
+run("public/workspace/pcb-footprint-graphics.js");
 run("public/workspace/pcb-router-v30.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
@@ -330,6 +331,36 @@ test("v3.0: malformed via route is rejected",()=>{
   vias:[{x:10,y:10,diameter:1.4,drill:0.6}]
  });
  assert.equal(pcb.test.isValidShape(b),false);
+});
+
+
+const artwork=window.robotForgeFootprintGraphics;
+test("v3.0: six source-traceable KiCad footprint graphic sets",()=>{
+ assert.equal(Object.keys(artwork.graphics).length,6);
+ for(const k of Object.keys(artwork.graphics))assert.ok(artwork.graphics[k].lines.length>5);
+});
+test("v3.0: selected KiCad LED footprint renders silkscreen and courtyard",()=>{
+ const b=pcb.test.starter();b.components[2].profile=catalog.profiles.led.key;
+ const svg=pcb.test.shapeSvg(b);
+ assert.match(svg,/pcb-footprint-silk/);assert.match(svg,/pcb-footprint-courtyard/);
+});
+test("v3.0: generated KiCad PCB includes source-derived fp_line and fp_circle",()=>{
+ const b=pcb.test.starter();b.components[2].profile=catalog.profiles.led.key;
+ const result=pcb.test.kicadDraft(b);
+ assert.match(result,/\(fp_line \(start /);assert.match(result,/\(fp_circle \(center /);
+});
+test("v3.0: valid two-sided via trace serializes segments and through-via",()=>{
+ const b=pcb.test.starter();
+ const a=pcb.test.padPos("J1:1",b),z=pcb.test.padPos("U1:1",b);
+ b.traces=[{id:"via-example",a:"J1:1",b:"U1:1",width:0.5,layer:"F.Cu",
+  sections:[{layer:"F.Cu",points:[a,{x:20,y:24}]},
+            {layer:"B.Cu",points:[{x:20,y:24},z]}],
+  vias:[{x:20,y:24,diameter:1.4,drill:0.6}]}];
+ assert.equal(pcb.test.isValidShape(b),true);
+ const content=pcb.test.kicadDraft(b);
+ assert.match(content,/\(via \(at 20\.0000 24\.0000\)/);
+ assert.match(content,/\(layer "B.Cu"\) \(net /);
+ assert.equal((content.match(/\(segment /g)||[]).length,2);
 });
 
 const generated=pcb.test.kicadDraft();
