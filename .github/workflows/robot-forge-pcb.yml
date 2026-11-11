@@ -62,7 +62,8 @@ jobs:
             -o "$RUNNER_TEMP/robot-forge-pcb/schematic-svg" \
             "$RUNNER_TEMP/robot-forge-pcb/robot-forge-draft.kicad_sch"
 
-      - name: Run official schematic ERC (violations block manufacture)
+      - name: Run official schematic ERC and record findings
+        id: erc
         run: |
           set +e
           kicad-cli sch erc \
@@ -72,10 +73,8 @@ jobs:
           result=$?
           set -e
           echo "KiCad ERC exit code: $result" | tee "$RUNNER_TEMP/robot-forge-pcb/erc-status.txt"
-          if [ "$result" -ne 0 ]; then
-            echo "Formal ERC findings remain. This draft is not manufacturing-ready."
-            exit "$result"
-          fi
+          if [ "$result" -eq 0 ]; then echo "passed=true" >> "$GITHUB_OUTPUT"; else echo "passed=false" >> "$GITHUB_OUTPUT"; fi
+          echo "ERC report captured; manufacturer parts still unverified."
 
       - name: Verify KiCad can parse and render the draft
         run: |
@@ -85,7 +84,8 @@ jobs:
             --output "$RUNNER_TEMP/robot-forge-pcb/svg" \
             "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
 
-      - name: Run official KiCad PCB DRC (not schematic ERC)
+      - name: Run official KiCad PCB DRC and record findings
+        id: drc
         run: |
           set +e
           kicad-cli pcb drc \
@@ -97,12 +97,11 @@ jobs:
           exit_code=$?
           set -e
           printf 'KiCad DRC exit code: %s\n' "$exit_code" | tee "$RUNNER_TEMP/robot-forge-pcb/drc-status.txt"
-          if [ "$exit_code" -ne 0 ]; then
-            echo "PCB DRC found violations or could not process the draft."
-            exit "$exit_code"
-          fi
+          if [ "$exit_code" -eq 0 ]; then echo "passed=true" >> "$GITHUB_OUTPUT"; else echo "passed=false" >> "$GITHUB_OUTPUT"; fi
+          echo "DRC report captured; manufacturer parts still unverified."
 
       - name: Export diagnostic Gerber and drill previews (only when ERC and DRC pass)
+        if: steps.erc.outputs.passed == 'true' && steps.drc.outputs.passed == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers"
           kicad-cli pcb export gerbers \
@@ -114,6 +113,16 @@ jobs:
             "$RUNNER_TEMP/robot-forge-pcb/robot-forge-demo.kicad_pcb"
           echo "DIAGNOSTIC PREVIEW ONLY. Footprint geometry and real component datasheets are unverified." \
             > "$RUNNER_TEMP/robot-forge-pcb/diagnostic-gerbers/NOT_FOR_MANUFACTURING.txt"
+
+      - name: Enforce official ERC and DRC diagnostic gate
+        if: always() && steps.erc.outcome == 'success' && steps.drc.outcome == 'success'
+        run: |
+          echo "ERC: ${{ steps.erc.outputs.passed }} | DRC: ${{ steps.drc.outputs.passed }}"
+          if [ "${{ steps.erc.outputs.passed }}" != "true" ] || [ "${{ steps.drc.outputs.passed }}" != "true" ]; then
+            echo "Blocking KiCad draft: ERC and/or DRC violations remain."
+            exit 1
+          fi
+          echo "No ERC/DRC violations found; manufacturer part matching remains unverified."
 
       - name: Upload generated drafts, ERC and DRC reports
         if: always()
