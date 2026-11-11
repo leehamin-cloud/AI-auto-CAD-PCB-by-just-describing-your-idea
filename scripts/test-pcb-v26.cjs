@@ -31,6 +31,7 @@ function run(file){vm.runInContext(fs.readFileSync(path.join(root,file),"utf8"),
 run("public/workspace/pcb-netlist.js");
 run("public/workspace/pcb-parts.js");
 run("public/workspace/pcb-schematic.js");
+run("public/workspace/pcb-kicad-schematic.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
 assert.ok(net&&pcb,"PCB modules should load");
@@ -135,10 +136,59 @@ test("v2.7: schematic view is an SVG concept document",()=>{
  assert.match(schematic.drawing(pcb.test.starter()),/^<svg xmlns=/);
 });
 
+
+const kiSch=window.robotForgeKiCadSchematic;
+test("v2.8: experimental KiCad schematic exporter exists",()=>{
+ assert.equal(typeof kiSch.generate,"function");assert.equal(kiSch.summary(pcb.test.read()).verified,false);
+});
+test("v2.8: KiCad schematic embeds generic symbol definitions",()=>{
+ const draft=kiSch.generate(pcb.test.read());
+ assert.match(draft,/^\(kicad_sch \(version 20250114\)/);
+ assert.match(draft,/\(lib_symbols/);
+ assert.match(draft,/RobotForge:RF_conn3/);
+ assert.match(draft,/RobotForge:RF_ic4/);
+});
+test("v2.8: correct pin labels and wire stubs encode logical nets",()=>{
+ const draft=kiSch.generate(pcb.test.read());
+ const count=(re)=>(draft.match(re)||[]).length;
+ assert.equal(count(/\(label "DATA"/g),2);assert.equal(count(/\(label "GND"/g),2);
+ assert.equal(count(/\(wire \(pts /g),4);
+});
+test("v2.8: no duplicate UUIDs in generated schematic",()=>{
+ const draft=kiSch.generate(pcb.test.read()),uuids=[...draft.matchAll(/\(uuid "([a-f0-9-]+)"\)/g)].map(x=>x[1]);
+ assert.equal(uuids.length,new Set(uuids).size);
+ assert.ok(uuids.length>10);
+});
+test("v2.8: S-expression quotes and parentheses are balanced",()=>{
+ const draft=kiSch.generate(pcb.test.read());let depth=0,quoted=false,esc=false;
+ for(const c of draft){
+  if(esc){esc=false;continue}if(quoted&&c==="\\"){esc=true;continue}
+  if(c==='"'){quoted=!quoted;continue}
+  if(!quoted&&c==="(")depth++;else if(!quoted&&c===")")depth--;
+  assert.ok(depth>=0,"unexpected closing parenthesis");
+ }
+ assert.equal(depth,0);assert.equal(quoted,false);
+});
+test("v2.8: pin role is mapped into embedded symbol definition",()=>{
+ const demo=pcb.test.starter();
+ demo.components[1].pinRoles={"1":"power_out"};
+ const sch=kiSch.generate(demo);assert.match(sch,/\(pin power_out line /);
+});
+test("v2.8: selected KiCad footprint name is present as reference property",()=>{
+ const demo=pcb.test.starter();demo.components[0].profile=catalog.profiles.conn3.key;
+ const sch=kiSch.generate(demo);assert.match(sch,/Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical/);
+});
+test("v2.8: exporter rejects oversized single-sheet projects",()=>{
+ const demo=pcb.test.starter();
+ for(let i=4;i<=25;i++)demo.components.push({id:"R"+i,kind:"resistor",x:10+i,y:30,rotation:0});
+ assert.throws(()=>kiSch.generate(demo),/24 components/);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
  fs.writeFileSync(path.join(dest,"robot-forge-demo.kicad_pcb"),generated,"utf8");
+ fs.writeFileSync(path.join(dest,"robot-forge-draft.kicad_sch"),kiSch.generate(pcb.test.read()),"utf8");
  fs.writeFileSync(path.join(dest,"robot-forge-logical-plan.json"),JSON.stringify({
   format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",
   nets:pcb.test.read().schematic.nets,disclaimer:"Not validated in KiCad, not manufacturing ready."
