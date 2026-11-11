@@ -187,6 +187,26 @@ test("v2.8: exporter rejects oversized single-sheet projects",()=>{
  assert.throws(()=>kiSch.generate(demo),/24 components/);
 });
 
+
+test("v2.8: schematic contains root sheet_instances",()=>{
+ assert.match(kiSch.generate(readySchematic),/\(sheet_instances \(path "\/" \(page "1"\)\)\)/);
+});
+test("v2.8: validation manifest explicitly blocks manufacturing approval",()=>{
+ const b=pcb.test.starter();pcb.test.set(b);
+ const manifest=JSON.parse(pcb.exportBoard("validation"));
+ assert.equal(manifest.outcome,"BLOCKED_FOR_MANUFACTURING");
+ assert.equal(manifest.official_checks.erc_passed,false);
+ assert.equal(manifest.official_checks.drc_passed,false);
+ assert.equal(manifest.footprint_reference.manufacturer_verified,false);
+});
+test("v2.8: browser export creates experimental schematic text",()=>{
+ pcb.test.set(readySchematic);
+ const text=pcb.exportBoard("kicad-sch");
+ assert.match(text,/^\(kicad_sch/);
+ assert.match(text,/\(label "DATA"/);
+});
+
+pcb.test.set(readySchematic);
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
