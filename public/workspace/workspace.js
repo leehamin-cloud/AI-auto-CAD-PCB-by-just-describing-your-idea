@@ -236,7 +236,7 @@ function sampleLoads(){
  return {T1,T2,m1,m2,mp,L1,L2};
 }
 function xyzBounds(){
- const visible=parts.filter(p=>!current().hiddenParts.includes(p.id));
+ const visible=parts.filter(p=>!current().hiddenParts.includes(p.id)).concat(pendingCadPreview?.parts||[]);
  let mins=[Infinity,Infinity,Infinity],maxs=[-Infinity,-Infinity,-Infinity];
  for(const p of visible)for(const f of p.triangles)for(const v of f)for(let i=0;i<3;i++){mins[i]=Math.min(mins[i],v[i]);maxs[i]=Math.max(maxs[i],v[i])}
  if(!Number.isFinite(mins[0]))return {center:[0,0,0],size:260};
