@@ -507,6 +507,27 @@ test("v3.1: BOM CSV contains MPN and never runs spreadsheet formulas",()=>{
  assert.match(csv,/\r\n/);
 });
 
+
+test("v3.1: selected part shows source-linked KiCad official footprint",()=>{
+ const b=pcb.test.starter();b.components[0].profile=catalog.profiles.conn3.key;
+ pcb.test.set(b);
+ const target={closest(q){return q==="[data-component]"?{dataset:{component:"J1"}}:null}};
+ el("#pcbSvg").trigger("pointerdown",{target,pointerId:78,clientX:240,clientY:240});
+ const link=el("#pcbUpstreamFootprintLink");
+ assert.equal(link.hidden,false);
+ assert.match(link.href,/github\.com\/KiCad\/kicad-footprints\/blob\/master/);
+ assert.match(link.textContent,/KiCad 원본 확인/);
+});
+test("v3.1: imported ERC diagnostic record is restored from local per-project storage",()=>{
+ pcb.test.set(pcb.test.starter());
+ pcb.test.acceptDiagnosticReport("erc",JSON.stringify({violations:[{description:"Example pin issue",severity:"error"}]}),"erc.json");
+ pcb.test.load();
+ const summary=el("#pcbImportedReports").textContent;
+ assert.match(summary,/ERC: 1건/);
+ assert.match(summary,/제조 승인 불가/);
+ pcb.test.clearDiagnosticReports();
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
