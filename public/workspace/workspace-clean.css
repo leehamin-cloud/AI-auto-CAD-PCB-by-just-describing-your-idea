@@ -1,0 +1,163 @@
+/* Robot Forge Focus Workspace v2.4
+   Two clear columns: design canvas + conversational edit.
+   Advanced tools are preserved behind one opt-in button.
+   Loaded AFTER base and sky styles. */
+:root{--rf-ink:#183b55;--rf-muted:#7996a9;--rf-stroke:#dfebf4;--rf-blue:#278ed2;--rf-soft:#f5faff;--rf-white:#fff}
+[hidden]{display:none!important}
+.focus-template-control,.focus-new-project,.focus-more{display:none}
+body{font-family:Inter,"Pretendard",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body.focus-layout{--bg:#f7faff;--panel:#fff;--panel2:#f6faff;background:#f7faff;color:var(--rf-ink)}
+body.focus-layout #app{height:100dvh;overflow:hidden;background:#f7faff}
+body.focus-layout .app-topbar{height:67px;min-height:67px;padding:0 25px;gap:15px;background:#fff;border-bottom:1px solid var(--rf-stroke);box-shadow:none}
+body.focus-layout .brand{font-size:17px;letter-spacing:-.8px;color:#233e54}
+body.focus-layout .brandmark{width:30px;height:30px;font-size:19px;background:#e5f4ff;border-radius:10px;margin-right:9px}
+body.focus-layout .breadcrumbs{gap:8px}
+body.focus-layout .breadcrumbs>a,body.focus-layout .breadcrumbs>.sep{display:none}
+body.focus-layout .project-name{font-size:12px;font-weight:700;color:#607f94;max-width:175px}
+body.focus-layout .project-name:hover{color:#197ab6}
+body.focus-layout .save-state{font-size:10px;font-weight:500;color:#9bafbd}
+body.focus-layout .top-divider,
+body.focus-layout .top-env,
+body.focus-layout .ai-top-entry,
+body.focus-layout .top-only,
+body.focus-layout .mode-switch,
+body.focus-layout .help-button,
+body.focus-layout .menu-mobile{display:none!important}
+body.focus-layout .focus-new-project,
+body.focus-layout .focus-more{display:inline-flex;align-items:center;justify-content:center;flex:none;gap:5px;border:1px solid #dce9f3;border-radius:9px;padding:10px 12px;font-size:11px;font-weight:750;white-space:nowrap;background:#fff;color:#526f85}
+body.focus-layout .focus-new-project:hover,
+body.focus-layout .focus-more:hover{background:#eef8ff;border-color:#bdddf1;color:#247db2}
+body.focus-layout .export-button{background:#329fdf;border:1px solid #329fdf;border-radius:9px;padding:11px 14px;box-shadow:none;font-size:11px}
+body.focus-layout .export-button:hover{background:#1688ce}
+body.focus-layout .workspace-shell{grid-template-columns:minmax(0,1fr) 360px;min-height:0;background:#f6faff}
+body.focus-layout .left-sidebar,
+body.focus-layout .left-resizer,
+body.focus-layout .right-resizer{display:none!important}
+body.focus-layout .center-column{min-width:0;min-height:0;background:#f5faff;border:0;display:flex;flex-direction:column;overflow:hidden}
+body.focus-layout .document-tabs,
+body.focus-layout .bottom-panel,
+body.focus-layout .statusbar{display:none!important}
+body.focus-layout .toolbar{height:64px;min-height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;gap:12px;background:#fff;border-bottom:1px solid var(--rf-stroke)}
+body.focus-layout .toolbar-group,
+body.focus-layout .tool-divider,
+body.focus-layout .toolbar-right .model-mode{display:none!important}
+body.focus-layout .focus-template-control{display:flex;align-items:center;gap:12px;min-width:0}
+body.focus-layout .focus-template-control label{font-size:11px;color:#819bab;white-space:nowrap;font-weight:700}
+body.focus-layout .focus-template-control select{font:inherit;color:#295775;font-size:13px;font-weight:700;border:1px solid #cfdfea;background:#f7fbff;border-radius:10px;padding:10px 30px 10px 13px;min-width:170px;max-width:100%;outline-offset:2px;cursor:pointer}
+body.focus-layout .focus-template-control select:focus{outline:2px solid #83c6ef}
+body.focus-layout .toolbar-right{gap:4px}
+body.focus-layout .view-chip{border-radius:8px;color:#7d99ad;padding:9px 11px;font-size:11px;font-weight:700}
+body.focus-layout .view-chip.active{background:#e6f4ff;color:#207fb9}
+body.focus-layout .canvas-wrap{flex:1;min-height:0;background:radial-gradient(ellipse at 50% 39%,#fff 0%,#f7fbff 57%,#ecf6ff 100%);border:0}
+body.focus-layout #modelCanvas{cursor:grab}
+body.focus-layout .beginner-help,
+body.focus-layout .ai-canvas-entry,
+body.focus-layout .viewport-help,
+body.focus-layout .axis-widget,
+body.focus-layout .viewport-bottom,
+body.focus-layout .view-float,
+body.focus-layout .viewport-label{display:none!important}
+body.focus-layout .cad-preview-banner{top:16px;left:17px;max-width:calc(100% - 34px);font-size:11px;border:1px solid #b5daf2;background:#e9f6ffed;box-shadow:none}
+body.focus-layout .selection-quick-edit{right:16px;bottom:18px;box-shadow:0 4px 20px #5f94b51b}
+body.focus-layout .noncad-stage{background:#f8fbff;inset:0;padding:28px}
+body.focus-layout .right-sidebar{min-width:0;border-left:1px solid #e1ecf4;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+body.focus-layout .inspector-tabs{height:62px;min-height:62px;padding:0 18px;gap:18px;border-bottom:1px solid #e6eff6;display:flex;flex:none}
+body.focus-layout .inspector-tab{height:62px;flex:0 0 auto;min-width:0;padding:0 2px;font-size:12px;font-weight:800;color:#92a6b4;border-bottom:2px solid transparent}
+body.focus-layout .inspector-tab.active{color:#248bd1;border-bottom-color:#3eaaec}
+body.focus-layout .inspector-tab[data-inspector="history"]{display:none!important}
+body.focus-layout .inspector-footer{display:none!important}
+body.focus-layout .inspector-scroll{flex:1;min-height:0;overflow-y:auto;background:#fff}
+body.focus-layout .inspector-scroll:has(#assistantPane:not([hidden])){display:flex;flex-direction:column;overflow:hidden}
+body.focus-layout #assistantPane{flex:1;min-height:0;height:100%;overflow:hidden}
+body.focus-layout .ai-chat-shell{height:100%;min-height:0;display:flex;flex-direction:column;background:#fff}
+body.focus-layout .ai-chat-head{padding:23px 20px 13px;gap:11px}
+body.focus-layout .ai-avatar{width:36px;height:36px;font-size:20px;border:0;border-radius:12px;background:#e7f5ff}
+body.focus-layout .ai-chat-heading strong{font-size:14px;letter-spacing:-.25px;color:#294d65}
+body.focus-layout .ai-chat-heading span{font-size:11px;color:#9badbb}
+body.focus-layout .chat-local-tag{background:#f3f8fc;border:0;font-size:9px;color:#8ca3b7;padding:7px;white-space:nowrap}
+body.focus-layout .chat-engine-note,
+body.focus-layout .ai-provider-options,
+body.focus-layout .ai-chat-tools,
+body.focus-layout .chat-security{display:none!important}
+body.focus-layout .chat-history{flex:1;min-height:65px;max-height:none;overflow-y:auto;gap:12px;margin:0;padding:16px 18px 20px;background:#fff}
+body.focus-layout .chat-response{background:#f2f7fb;border-color:#ecf1f6;color:#4e6b80}
+body.focus-layout .chat-user{background:#3c9ed9;border-color:#3c9ed9}
+body.focus-layout .chat-prompt-section{flex:none;padding:11px 17px 9px;border-top:1px solid #eef3f8}
+body.focus-layout .chat-prompt-title{display:none!important}
+body.focus-layout .prompt-presets{margin:0;display:flex;gap:7px;flex-wrap:wrap}
+body.focus-layout .prompt-preset{font-size:10px;font-weight:650;border-radius:8px;padding:8px 9px;background:#f4faff;border-color:#dbeaf5;color:#4883ac}
+body.focus-layout .prompt-preset:nth-child(n+3){display:none!important}
+body.focus-layout .chat-compose{position:relative;bottom:auto;padding:12px 17px 20px;border-top:0;box-shadow:none}
+body.focus-layout .chat-compose>.field-label{display:none!important}
+body.focus-layout .chat-compose .command-input{border:1px solid #d4e6f2;background:#f9fcff;min-height:105px;max-height:180px;border-radius:12px;padding:13px;font-size:12px;resize:vertical;line-height:1.6;box-shadow:none}
+body.focus-layout .chat-compose .command-input:focus{outline:2px solid #b6e4ff;border-color:#87c2ed}
+body.focus-layout .chat-live-preview,
+body.focus-layout .chat-preview-legend{display:none!important}
+body.focus-layout.chat-drafting .chat-live-preview{display:flex!important;margin:8px 0 6px}
+body.focus-layout.chat-drafting .chat-preview-legend{display:flex!important;margin:0 0 8px}
+body.focus-layout .chat-compose-bottom{margin-top:9px}
+body.focus-layout .chat-compose-bottom>span{font-size:10px;color:#9caeba}
+body.focus-layout .chat-compose-bottom>.apply-button{background:#309bde;border:0;box-shadow:none;padding:11px 18px;min-width:107px;font-size:11px;border-radius:9px}
+body.focus-layout .chat-compose-bottom>.apply-button:hover{background:#218ad1}
+body.focus-layout #propertiesPane{padding-bottom:28px}
+body.focus-layout #propertiesPane .top-heading{background:#fff}
+body.focus-layout #propertiesPane .note{background:#f5faff;color:#829bab}
+body.focus-layout #propertiesPane .quick-actions{display:flex}
+body.focus-layout .mass-summary{margin-top:17px}
+
+/* Advanced state keeps the existing full studio. The entry controls disappear. */
+body:not(.focus-layout) .focus-new-project,
+body:not(.focus-layout) .focus-more,
+body:not(.focus-layout) .focus-template-control{display:none!important}
+body:not(.focus-layout) .focus-advanced-return{display:inline-flex}
+
+/* Narrow laptop: preserve 3D working area. */
+@media(max-width:1120px){
+ body.focus-layout .workspace-shell{grid-template-columns:minmax(0,1fr) 330px}
+ body.focus-layout .app-topbar{padding:0 15px;gap:10px}
+ body.focus-layout .project-name{max-width:130px}
+ body.focus-layout .toolbar{padding:0 15px}
+ body.focus-layout .focus-template-control select{min-width:135px}
+ body.focus-layout .toolbar-right .view-chip{padding:8px}
+}
+@media(max-width:800px){
+ body.focus-layout .workspace-shell{grid-template-columns:minmax(0,1fr) 300px}
+ body.focus-layout .breadcrumbs .save-state{display:none!important}
+ body.focus-layout .focus-template-control label{display:none}
+ body.focus-layout .focus-template-control select{min-width:122px;padding:9px 22px 9px 9px;font-size:11px}
+ body.focus-layout .right-sidebar .inspector-tabs{padding:0 12px}
+ body.focus-layout .inspector-tabs{gap:11px}
+ body.focus-layout .chat-history{padding:13px 11px}
+ body.focus-layout .ai-chat-head{padding:18px 12px 12px}
+ body.focus-layout .chat-prompt-section{padding:9px 12px}
+ body.focus-layout .chat-compose{padding:11px 12px 14px}
+}
+@media(max-width:680px){
+ body.focus-layout #app{height:auto;min-height:100dvh;overflow:visible}
+ body.focus-layout .app-topbar{min-height:96px;height:auto;display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px}
+ body.focus-layout .brand{order:0;flex:1;font-size:16px}
+ body.focus-layout .brand span:last-child{display:inline}
+ body.focus-layout .focus-more{order:1}
+ body.focus-layout .breadcrumbs{order:2;flex:1;min-width:90px}
+ body.focus-layout .project-name{font-size:11px;max-width:110px}
+ body.focus-layout .focus-new-project{order:3;padding:9px}
+ body.focus-layout .export-button{order:4;padding:10px 11px}
+ body.focus-layout .workspace-shell{display:flex;flex-direction:column;min-height:0;overflow:visible}
+ body.focus-layout .center-column{order:0;min-height:0;overflow:visible}
+ body.focus-layout .toolbar{height:56px;min-height:56px;gap:5px;padding:0 10px}
+ body.focus-layout .focus-template-control{min-width:0;flex:1}
+ body.focus-layout .focus-template-control select{width:100%;min-width:80px;max-width:188px}
+ body.focus-layout .toolbar-right{gap:0}
+ body.focus-layout .view-chip{font-size:10px;padding:7px}
+ body.focus-layout .canvas-wrap{height:395px;min-height:395px;flex:none}
+ body.focus-layout .right-sidebar{order:1;border-left:0;border-top:1px solid var(--rf-stroke);min-height:560px;height:auto;overflow:visible}
+ body.focus-layout .inspector-scroll:has(#assistantPane:not([hidden])){display:block;overflow:visible}
+ body.focus-layout #assistantPane{height:auto;min-height:560px;overflow:visible}
+ body.focus-layout .ai-chat-shell{height:auto;min-height:560px}
+ body.focus-layout .chat-history{height:245px;min-height:200px;max-height:285px;flex:none}
+ body.focus-layout .chat-compose{padding-bottom:28px}
+ body.focus-layout .inspector-tabs{min-height:51px;height:51px;padding:0 14px}
+ body.focus-layout .inspector-tab{height:51px}
+ body.focus-layout .cad-preview-banner{top:10px}
+ body.focus-layout .chat-compose .command-input{min-height:86px}
+}
