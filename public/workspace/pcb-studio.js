@@ -52,7 +52,7 @@ function projectKey(){
 function load(){
  let saved=null;try{saved=JSON.parse(localStorage.getItem(projectKey())||"null")}catch{}
  board=isValidShape(saved)?saved:starter();if(!board.schematic)board.schematic={nets:[]};revision=[];selected=null;routing=null;mousePoint=null;pcbView="layout";
- updateSizeInputs();draw();notice("PCB 초안 준비 완료 · 실제 회로 검증과 별개입니다.");
+ updateSizeInputs();setPcbView("layout");notice("PCB 초안 준비 완료 · 실제 회로 검증과 별개입니다.");
 }
 function save(){
  try{localStorage.setItem(projectKey(),JSON.stringify(board))}catch{notice("저장 실패: 저장소를 사용할 수 없습니다.",true)}
@@ -231,6 +231,73 @@ function notice(message,problem=false){
  const v=$s("#pcbCanvasHint");if(v)v.textContent=message;
  const a=$s("#pcbInstruction");if(a&&problem)a.textContent=message;
 }
+
+function registerNet(){
+ const name=String($s("#pcbNetName")?.value||"").trim();
+ const pinA=$s("#pcbNetPinA")?.value,pinB=$s("#pcbNetPinB")?.value;
+ if(!pinA||!pinB)return notice("연결할 핀 A와 핀 B를 선택해주세요.",true);
+ const trial=deep(board);
+ try{netlib.add(trial,name,pinA,pinB)}
+ catch(e){return notice(e.message||String(e),true)}
+ const ok=transact(b=>netlib.add(b,name,pinA,pinB),name.toUpperCase()+" 신호 연결을 추가했어요.");
+ if(ok){
+  const nameField=$s("#pcbNetName");if(nameField)nameField.value="DATA";
+  draw();
+ }
+}
+function unregisterNet(name){
+ const ok=transact(b=>netlib.remove(b,name),name+" 연결 계획을 삭제했어요.");
+ if(ok)draw();
+}
+function loadExample(){
+ const starterPins=["J1:1","J1:2","J1:3","U1:1","U1:2","U1:3","D1:1","D1:2"];
+ const ids=new Set(pads(board).map(p=>p.ref));
+ if(!starterPins.every(id=>ids.has(id)))return notice("예제는 기본 J1, U1, D1 부품이 있는 기판에 적용할 수 있어요.",true);
+ const example={nets:[
+  {name:"VCC",pins:["J1:1","U1:1"]},
+  {name:"GND",pins:["J1:2","D1:2"]},
+  {name:"DATA",pins:["J1:3","U1:2"]},
+  {name:"LED_CTRL",pins:["U1:3","D1:1"]}
+ ]};
+ const copy=deep(board);copy.schematic=example;
+ if(!isValidShape(copy))return notice("예시 연결이 기존 부품과 충돌합니다.",true);
+ transact(b=>b.schematic=deep(example),"예시 핀 연결 계획 4개를 불러왔어요. 실제 전기적 타당성은 미검증입니다.");
+ setPcbView("nets");
+}
+function renderNetEditor(){
+ const refs=pads(board).map(p=>p.ref).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+ const options=refs.map(x=>'<option value="'+safe(x)+'">'+safe(x)+'</option>').join("");
+ for(const [i,id] of ["#pcbNetPinA","#pcbNetPinB"].entries()){
+  const field=$s(id);if(!field)continue;
+  const token=refs.join("|");
+  if(field.dataset?.optionsToken!==token){
+   const prev=field.value;
+   field.innerHTML=options;
+   if(field.dataset)field.dataset.optionsToken=token;
+   field.value=refs.includes(prev)?prev:refs[Math.min(i,refs.length-1)]||"";
+  }
+ }
+ const list=$s("#pcbNetList");
+ if(list){
+  const nets=netlib.netPlan(board),status=netlib.graph(board,pads(board),unionNets(board));
+  list.innerHTML=nets.length?nets.map(n=>{
+   const open=status.opens.some(x=>x.name===n.name);
+   return '<div class="pcb-net-row"><div><b>'+safe(n.name)+'</b><small>'+safe(n.pins.join(" · "))+'</small><em class="'+(open?"pending":"connected")+'">'+(open?"배선 대기":"연결됨")+'</em></div><button type="button" data-net-remove="'+safe(n.name)+'" aria-label="'+safe(n.name)+' 연결 삭제">×</button></div>';
+  }).join(""):'<div class="pcb-net-empty">아직 연결 계획이 없어요. 핀 A와 B를 선택해 추가하세요.</div>';
+ }
+}
+function setPcbView(name){
+ if(!["layout","nets"].includes(name))return;
+ pcbView=name;routing=null;mousePoint=null;pointer=null;
+ const a=$s("#pcbLayoutView"),b=$s("#pcbNetsView");
+ for(const [node,on]of [[a,name==="layout"],[b,name==="nets"]]){
+  node?.classList.toggle("active",on);node?.setAttribute("aria-pressed",String(on));
+ }
+ const svg=$s("#pcbSvg");if(svg)svg.style.cursor=name==="nets"?"default":"";
+ const hint=$s("#pcbCanvasHint");if(hint)hint.textContent=name==="nets"?"핀 사이의 필수 연결 계획입니다. 실제 부품 회로도는 아닙니다.":"부품을 드래그하거나 패드 두 개를 눌러 배선을 만들 수 있어요.";
+ draw();
+}
+
 function renderInspection(){
  const result=validate(),field=$s("#pcbValidation");
  if(field){
@@ -248,7 +315,8 @@ function renderInspection(){
   selection.textContent=c?c.id+" · "+lib[c.kind].label+" (x "+num(c.x)+", y "+num(c.y)+" mm)":
    t?"배선 "+t.a+" → "+t.b:"선택한 항목 없음";
  }
- const stats=$s("#pcbCanvasStats");if(stats)stats.textContent=board.components.length+"개 부품 · "+board.traces.length+"개 배선 · "+result.issues.length+"개 간격 경고";
+ renderNetEditor();
+  const stats=$s("#pcbCanvasStats");if(stats)stats.textContent=board.components.length+"개 부품 · "+board.traces.length+"개 배선 · "+result.issues.length+"개 검토 항목";
 }
 function view(){
  scale=Math.min(820/board.width,505/board.height);
@@ -270,18 +338,38 @@ function shapeSvg(b=board){
   return '<g data-component="'+c.id+'" class="pcb-component'+on+'" transform="translate('+num(c.x)+' '+num(c.y)+') rotate('+c.rotation+')">'+
    '<rect class="pcb-comp-body" x="'+num(-shape.w/2)+'" y="'+num(-shape.h/2)+'" width="'+shape.w+'" height="'+shape.h+'" rx=".8"/>'+label+padHtml+'</g>';
  }).join("");
+
+ const graph=netlib.graph(b,pads(b),unionNets(b));
+ const unrouted=graph.opens.flatMap(req=>{
+  const first=padPos(req.groups[0][0],b);
+  return req.groups.slice(1).map(g=>{
+   const target=padPos(g[0],b);
+   if(!first||!target)return "";
+   return '<line class="pcb-airwire" x1="'+num(first.x)+'" y1="'+num(first.y)+'" x2="'+num(target.x)+'" y2="'+num(target.y)+'" />';
+  });
+ }).join("");
+
  let wire="";
  if(routing&&mousePoint){const a=padPos(routing,b);if(a)wire='<line class="pcb-wire-preview" x1="'+num(a.x)+'" y1="'+num(a.y)+'" x2="'+num(mousePoint.x)+'" y2="'+num(mousePoint.y)+'"/>'}
  const scaleText='<text x="'+num(b.width/2)+'" y="'+num(b.height+4)+'" class="pcb-board-mm">'+num(b.width)+' × '+num(b.height)+' mm · top copper F.Cu</text>';
  return '<g transform="translate('+num(originX)+' '+num(originY)+') scale('+num(scale)+')">'+
    '<rect class="pcb-board" width="'+b.width+'" height="'+b.height+'" rx="1.0"/>'+
    '<g>'+gx.join("")+gy.join("")+'</g><rect class="pcb-board-outline" width="'+b.width+'" height="'+b.height+'" rx="1.0"/>'+
-   traces+wire+components+scaleText+'</g>';
+   traces+unrouted+wire+components+scaleText+'</g>';
 }
 function draw(){
  if(!active)return;
  const svg=$s("#pcbSvg");if(!svg)return;
- svg.innerHTML=shapeSvg();
+ if(pcbView==="nets"){
+  const illustration=netlib.illustration(board,unionNets(board));
+  const vb=illustration.match(/viewBox="([^"]+)"/);
+  const inner=illustration.replace(/^<svg[^>]*>/,"").replace(/<\/svg>$/,"");
+  svg.setAttribute("viewBox",vb?.[1]||"0 0 1000 640");
+  svg.innerHTML=inner;
+ }else{
+  svg.setAttribute("viewBox","0 0 1000 640");
+  svg.innerHTML=shapeSvg();
+ }
  renderInspection();
  const label=$s("#pcbCanvasLabel");if(label)label.textContent=num(board.width)+" × "+num(board.height)+" mm · 전면 구리층 F.Cu";
 }
@@ -298,6 +386,7 @@ function coordinates(evt){
  return {x:((evt.clientX-rect.left-offsetX)/s-originX)/scale,y:((evt.clientY-rect.top-offsetY)/s-originY)/scale};
 }
 function onPointerDown(evt){
+ if(pcbView!=="layout")return;
  const target=evt.target, pad=target?.closest?.("[data-pad]"),trace=target?.closest?.("[data-trace]"),component=target?.closest?.("[data-component]");
  if(tool==="route"&&pad){
   const ref=pad.dataset.pad;
@@ -321,6 +410,7 @@ function onPointerDown(evt){
  draw();
 }
 function onPointerMove(evt){
+ if(pcbView!=="layout")return;
  const p=coordinates(evt);if(!p)return;
  if(tool==="route"&&routing){mousePoint={x:snap(p.x),y:snap(p.y)};draw();return}
  if(!pointer||pointer.id!==evt.pointerId)return;
@@ -418,6 +508,14 @@ function close(){
 }
 function bind(){
  $s("#rfPcbTab")?.addEventListener("click",open);
+ $s("#pcbLayoutView")?.addEventListener("click",()=>setPcbView("layout"));
+ $s("#pcbNetsView")?.addEventListener("click",()=>setPcbView("nets"));
+ $s("#pcbAddNetButton")?.addEventListener("click",registerNet);
+ $s("#pcbLoadExampleButton")?.addEventListener("click",loadExample);
+ $s("#pcbNetList")?.addEventListener("click",e=>{
+  const btn=e.target?.closest?.("[data-net-remove]");
+  if(btn)unregisterNet(btn.dataset.netRemove);
+ });
  // The original CAD toolbar owns this button; intercept it only in PCB mode.
  $s("#exportButton")?.addEventListener("click",event=>{
   if(!active)return;
