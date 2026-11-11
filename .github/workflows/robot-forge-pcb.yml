@@ -1,4 +1,4 @@
-name: Robot Forge PCB - logic and KiCad draft checks
+name: Robot Forge PCB - schematic logic, footprint refs and KiCad draft checks
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
     paths:
       - 'public/workspace/pcb-studio.js'
       - 'public/workspace/pcb-netlist.js'
+      - 'public/workspace/pcb-parts.js'
+      - 'public/workspace/pcb-schematic.js'
       - 'scripts/test-pcb-v26.cjs'
       - '.github/workflows/robot-forge-pcb.yml'
   workflow_dispatch:
