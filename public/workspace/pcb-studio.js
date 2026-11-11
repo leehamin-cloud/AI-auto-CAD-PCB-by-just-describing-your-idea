@@ -20,9 +20,11 @@ function starter(){
  {id:"J1",kind:"conn3",x:16,y:29,rotation:0},
  {id:"U1",kind:"ic4",x:49,y:34,rotation:0},
  {id:"D1",kind:"led",x:79,y:30,rotation:0}
- ],traces:[]};
+ ],traces:[],schematic:{nets:[]}};
 }
-let board=starter(),revision=[],tool="move",active=false,selected=null,routing=null,pointer=null,scale=1,originX=0,originY=0,mousePoint=null;
+let board=starter(),revision=[],tool="move",active=false,selected=null,routing=null,pointer=null,scale=1,originX=0,originY=0,mousePoint=null,pcbView="layout";
+const netlib=window.robotForgeNetlist;
+if(!netlib)throw Error("PCB netlist module was not loaded");
 const traceWidths=new Set([0.3,0.5,0.8,1]);
 const snap=n=>Math.round(n*2)/2;
 function isValidShape(b){
@@ -41,6 +43,7 @@ function isValidShape(b){
      !traceWidths.has(Number(t.width))||!/^([A-Z][1-9][0-9]{0,3}):[1-4]$/.test(t.a)||!/^([A-Z][1-9][0-9]{0,3}):[1-4]$/.test(t.b))return false;
   if(!padPos(t.a,b)||!padPos(t.b,b))return false;
  }
+ if(netlib.validateShape(b,pads(b).map(p=>p.ref)))return false;
  return true;
 }
 function projectKey(){
@@ -48,7 +51,7 @@ function projectKey(){
 }
 function load(){
  let saved=null;try{saved=JSON.parse(localStorage.getItem(projectKey())||"null")}catch{}
- board=isValidShape(saved)?saved:starter();revision=[];selected=null;routing=null;mousePoint=null;
+ board=isValidShape(saved)?saved:starter();if(!board.schematic)board.schematic={nets:[]};revision=[];selected=null;routing=null;mousePoint=null;pcbView="layout";
  updateSizeInputs();draw();notice("PCB 초안 준비 완료 · 실제 회로 검증과 별개입니다.");
 }
 function save(){
@@ -102,7 +105,7 @@ function intersects(a,b,c,d){
  return e1*e2<-1e-8&&e3*e4<-1e-8;
 }
 function validate(b=board){
- const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b);
+ const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b),logic=netlib.graph(b,allPads,net);
  for(const c of b.components){
   const item=lib[c.kind],rad=c.rotation*Math.PI/180;
   const ex=(Math.abs(Math.cos(rad))*item.w+Math.abs(Math.sin(rad))*item.h)/2;
@@ -150,12 +153,14 @@ function validate(b=board){
    if(gap<(a.width+b.width)/2+0.25)issues.push(a.id+"과 "+b.id+" 배선 사이의 간격이 부족합니다.");
   }
  }
+ for(const short of logic.shorts)issues.push("전기적 연결 충돌: "+short.groups.join(" ↔ ")+" 신호가 하나의 구리 배선으로 합쳐졌습니다.");
+ for(const open of logic.opens)issues.push("필수 배선 누락: "+open.name+" ("+open.groups.length+"개로 분리된 연결)");
  const singles=allPads.filter(p=>!net.nets.has(p.ref)).length;
  if(singles)warnings.push(singles+"개 패드가 배선에 연결되지 않았습니다. 회로도가 없어 필수 연결 여부는 판단할 수 없습니다.");
- warnings.push("스키매틱·넷리스트가 없어 전기적 연결의 정답은 검증하지 않았습니다.");
+ warnings.push(logic.plans?"등록된 핀 연결 계획과 배선의 일치 여부만 검사했습니다. 실제 전자회로는 검증되지 않았습니다.":"필요한 핀 연결을 아직 등록하지 않았습니다. 회로의 전기적 정답은 검증되지 않았습니다.");
  warnings.push("이 검사는 단순 거리·교차 검사이며 KiCad DRC/ERC를 대체하지 않습니다.");
- insights.push(b.components.length+"개 부품 · "+b.traces.length+"개 배선 · "+net.netNames.length+"개 연결 그룹");
- return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames};
+ insights.push(b.components.length+"개 부품 · "+b.traces.length+"개 배선 · "+net.netNames.length+"개 연결 그룹 · 필요한 신호 "+logic.plans+"개");
+ return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames,opens:logic.opens,shorts:logic.shorts,planned:logic.plans};
 }
 function getInfo(){
  const r=validate();
@@ -188,13 +193,15 @@ function rotate(){
 function remove(){
  if(!selected)return notice("삭제할 항목을 선택해주세요.");
  const s=selected;transact(b=>{
-  if(s.type==="component"){b.components=b.components.filter(c=>c.id!==s.id);b.traces=b.traces.filter(t=>!t.a.startsWith(s.id+":")&&!t.b.startsWith(s.id+":"))}
+  if(s.type==="component"){b.components=b.components.filter(c=>c.id!==s.id);b.traces=b.traces.filter(t=>!t.a.startsWith(s.id+":")&&!t.b.startsWith(s.id+":"));netlib.dropComponent(b,s.id)}
   else b.traces=b.traces.filter(t=>t.id!==s.id);
  },"선택한 "+(s.type==="component"?"부품":"배선")+"을 삭제했어요.");
  selected=null;routing=null;draw();
 }
 function addRoute(first,second){
  if(!padPos(first)||!padPos(second)||first===second)return notice("서로 다른 패드 두 개를 선택해주세요.",true);
+ const req=netlib.graph(board,pads(board),unionNets(board)).expected;
+ if(req.has(first)&&req.has(second)&&req.get(first)!==req.get(second))return notice("두 패드는 서로 다른 필수 신호("+req.get(first)+" / "+req.get(second)+")입니다. 합선을 방지하도록 배선 연결을 막았습니다.",true);
  if(board.traces.some(t=>(t.a===first&&t.b===second)||(t.a===second&&t.b===first)))return notice("이미 연결된 패드입니다.",true);
  const w=Number($s("#pcbTraceWidth")?.value||0.5);
  const id="T"+(Date.now().toString(36))+"-"+Math.floor(Math.random()*100000).toString(36);
