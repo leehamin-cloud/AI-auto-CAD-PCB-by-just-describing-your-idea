@@ -62,6 +62,11 @@ function instance(component,i,root){
   x=30.48+(i%cols)*60.96,y=35.56+Math.floor(i/cols)*25.4;
  const pinList=catalog.pins(component);
  const footprint=catalog.get(component)?.footprint||"";
+ const part=component.part||{};
+ const extraFields=[["Datasheet",part.datasheetUrl],["Manufacturer",part.manufacturer],["MPN",part.mpn]]
+  .filter(entry=>typeof entry[1]==="string"&&entry[1].trim()).map(([key,val],i)=>
+   ' (property '+q(key)+' '+q(val)+' (at '+f(x)+' '+f(y+13.97+i*2.54)+' 0)'+
+   ' (effects (font (size 1.27 1.27)) (hide yes)))').join("");
  const pins=pinList.map(p=>' (pin '+q(p.pin)+' (uuid '+q(uuid("pin:"+component.id+":"+p.pin))+'))').join("");
  const center={x,y};
  const text=' (symbol (lib_id '+q(id)+') (at '+f(x)+' '+f(y)+' 0) (unit 1)'+
@@ -69,7 +74,7 @@ function instance(component,i,root){
    ' (property "Reference" '+q(component.id)+' (at '+f(x)+' '+f(y-10.16)+' 0) (effects (font (size 1.27 1.27))))'+
    ' (property "Value" '+q(values[component.kind])+' (at '+f(x)+' '+f(y+9.0)+' 0) (effects (font (size 1.27 1.27))))'+
    ' (property "Footprint" '+q(footprint)+' (at '+f(x)+' '+f(y+11.43)+' 0) (effects (font (size 1.27 1.27)) (hide yes)))'+
-   pins+
+   extraFields+pins+
    ' (instances (project "robot-forge-draft" (path '+q("/"+root)+' (reference '+q(component.id)+') (unit 1)))))';
  return {text,center,pins:pinList.map(p=>({ref:p.ref,...pinPoint(p.pin-1,x,y,pinList.length)}))};
 }
