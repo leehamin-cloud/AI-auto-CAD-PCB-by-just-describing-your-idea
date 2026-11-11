@@ -86,3 +86,31 @@ body.pcb-mode .pcb-inspector{display:flex!important}
 .pcb-export-dialog button[data-pcb-export]:hover{background:#e9f6ff}
 @media(max-width:1150px){body.pcb-mode .workspace-shell{grid-template-columns:minmax(0,1fr) 315px}.pcb-inspector-header{padding:15px 12px}.pcb-inspector-scroll{padding:12px}.pcb-canvas-top{padding:13px 11px}}
 @media(max-width:680px){body.pcb-mode #app{height:auto;overflow:visible}body.pcb-mode .workspace-shell{display:flex;flex-direction:column;min-height:0;overflow:visible}body.pcb-mode .center-column{min-height:0;overflow:visible}body.pcb-mode .canvas-wrap{height:375px;min-height:375px;flex:none}body.pcb-mode .right-sidebar{height:auto;min-height:0;overflow:visible;border-left:0;border-top:1px solid #e0edf5}body.pcb-mode .pcb-inspector{height:auto;min-height:560px;overflow:visible}body.pcb-mode .pcb-inspector-scroll{overflow:visible;padding:16px}body.pcb-mode .toolbar{height:46px;min-height:46px}body.pcb-mode .rf-studio-switch{order:1}body.pcb-mode .brand{order:0}body.pcb-mode .breadcrumbs{order:2}body.pcb-mode .pcb-bottom-actions{position:sticky;bottom:0;box-shadow:0 -5px 15px #538bb51b}#pcbSvg{border-radius:10px}.rf-studio-switch{gap:0;padding:3px}.rf-studio-button{padding:8px;font-size:10px}.pcb-canvas-top{font-size:9px;padding:10px 10px 5px}.pcb-canvas-bottom{font-size:9px;padding:8px 10px}}
+
+
+/* v2.6 logical pin connection planning — separate from electrical schematic capture */
+.pcb-view-toggle{display:inline-flex;align-items:center;gap:3px;border:1px solid #d3e7f3;background:#eaf5ff;padding:3px;border-radius:11px;min-width:0}
+.pcb-view-toggle button{padding:8px 10px;border:0;background:transparent;color:#6d93aa;font-weight:850;font-size:11px;white-space:nowrap;border-radius:8px}
+.pcb-view-toggle button.active{background:#fff;color:#1584bf;box-shadow:0 2px 8px #5b9bb522}
+.pcb-view-toggle button:hover:not(.active){background:#f5faff;color:#147ebb}
+#pcbSvg .pcb-airwire{stroke:#0b95db;stroke-width:.38;stroke-dasharray:1.8 1.8;stroke-linecap:round;opacity:.85;pointer-events:none}
+.pcb-net-label{display:block;font-size:10px;color:#748fa4;font-weight:800;margin-bottom:6px}
+.pcb-net-name{width:100%;padding:10px;border:1px solid #cfe1f0;border-radius:8px;background:#fafcff;color:#306484;font-weight:800;font-size:12px;text-transform:uppercase}
+.pcb-net-name:focus{outline:2px solid #a8dfff}
+.pcb-net-pins{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.pcb-net-pins label{min-width:0;font-size:10px;font-weight:800;color:#6c90a8}
+.pcb-net-pins select{width:100%;margin-top:7px;min-width:0;border:1px solid #d4e5f1;border-radius:8px;padding:10px 8px;color:#386c8b;background:#f9fcff;font-size:11px}
+.pcb-net-list{display:flex;flex-direction:column;gap:7px;min-height:25px;margin-top:11px}
+.pcb-net-row{background:#f6faff;border:1px solid #dfedf7;border-radius:9px;padding:10px;display:flex;align-items:center;gap:7px}
+.pcb-net-row>div{min-width:0;flex:1;display:grid;gap:4px}
+.pcb-net-row b{color:#2f6687;font-size:11px}
+.pcb-net-row small{color:#7c98aa;font-size:10px;overflow-wrap:anywhere}
+.pcb-net-row em{font-size:10px;font-style:normal;font-weight:800}
+.pcb-net-row em.pending{color:#ba833d}
+.pcb-net-row em.connected{color:#148f7f}
+.pcb-net-row button{border:0;background:#edf6fc;color:#86a0af;font-size:18px;border-radius:6px;padding:2px 7px}
+.pcb-net-row button:hover{background:#ffeaea;color:#b96c60}
+.pcb-net-empty{color:#8ea6b6;font-size:10px;line-height:1.7;padding:5px}
+body.pcb-mode #pcbSvg{background:linear-gradient(150deg,#fbfdff,#f1f8ff)}
+body.pcb-mode #pcbSvg:has(text[fill="#2c6f97"]){background:#f5faff}
+@media(max-width:680px){.pcb-view-toggle button{padding:7px 8px;font-size:10px}.pcb-canvas-top{padding:9px 10px 5px}.pcb-net-pins{gap:7px}}
