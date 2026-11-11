@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0d1211">
+<meta name="theme-color" content="#e9f5ff">
 <meta name="description" content="Robot Forge workspace — local browser 3D engineering sandbox and STL mesh export.">
 <title>로봇 만들기 — Robot Forge</title>
-<link rel="stylesheet" href="./workspace.css">
+<link rel="stylesheet" href="/workspace/workspace.css?v=22"><link rel="stylesheet" href="/workspace/theme-sky.css?v=22">
 </head>
 <body class="beginner-mode">
 <div id="app">
@@ -13,7 +13,7 @@
   <a href="/" class="brand" aria-label="Robot Forge home"><span class="brandmark">⬡</span><span>ROBOT <b>FORGE</b></span></a>
   <div class="top-divider"></div>
   <div class="breadcrumbs"><a href="/">홈</a><span class="sep">/</span><button id="projectPicker" class="project-name" title="Switch project"><span id="projectName">Research Arm Alpha</span> <span class="chevron">⌄</span></button><span id="saveState" class="save-state">● 이 기기에 저장됨</span></div>
-  <div class="top-spacer"></div>
+  <div class="top-spacer"></div><button class="ai-top-entry" type="button" id="topChatButton">✦ AI · 채팅으로 CAD 수정</button>
   <span class="top-env"><span class="green-dot"></span> 체험용 3D 편집기</span>
   <button class="icon-btn top-only" id="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
   <button class="icon-btn top-only" id="redoButton" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
@@ -70,7 +70,7 @@
     <div class="canvas-wrap" id="canvasWrap">
       <canvas id="modelCanvas" aria-label="Interactive 3D shaded mesh view. Drag to orbit, shift-drag to pan, scroll to zoom.">Interactive 3D view needs Canvas support.</canvas>
       <div id="nonCadStage" class="noncad-stage" hidden></div>
-      <div class="beginner-help" id="beginnerHelp"><div class="beginner-help-top"><span class="beginner-step">처음이라면 여기부터!</span><button id="dismissBeginnerHelp" aria-label="안내 접기">×</button></div><strong>3단계로 내 모델 만들기</strong><p>① 오른쪽에서 모델을 고르고 → ② 크기를 바꾸고 → ③ 적용 버튼을 누르세요.</p><div class="beginner-help-actions"><button id="beginnerChooseTemplate">모델 고르기</button><button id="beginnerSeeHow">사용법 보기</button></div></div><div class="viewport-label"><span class="green-dot"></span><span id="viewportTitle">3D 모델 보기</span><span class="viewport-little">mm</span></div>
+      <div class="beginner-help" id="beginnerHelp"><div class="beginner-help-top"><span class="beginner-step">처음이라면 여기부터!</span><button id="dismissBeginnerHelp" aria-label="안내 접기">×</button></div><strong>3단계로 내 모델 만들기</strong><p>① 오른쪽에서 모델을 고르고 → ② 크기를 바꾸고 → ③ 적용 버튼을 누르세요.</p><div class="beginner-help-actions"><button id="beginnerChooseTemplate">모델 고르기</button><button id="beginnerSeeHow">사용법 보기</button></div></div><button class="ai-canvas-entry" type="button" id="canvasChatButton">✦ 채팅으로 수정하기 <span>→</span></button><div class="viewport-label"><span class="green-dot"></span><span id="viewportTitle">3D 모델 보기</span><span class="viewport-little">mm</span></div>
       <div class="viewport-help">드래그: 돌려보기 · Shift+드래그: 이동 · 휠: 확대</div>
       <div class="axis-widget"><span class="axis-z">Z ↑</span><span class="axis-y">Y ↗</span><span class="axis-x">X →</span></div>
       <div class="viewport-bottom"><span id="viewportStats">0 TRIANGLES</span><span id="selectedPartName">No selection</span></div>
@@ -90,9 +90,9 @@
   <div id="rightResizer" class="resizer right-resizer" role="separator" aria-label="Resize inspector" tabindex="0"></div>
   <aside class="right-sidebar" id="rightSidebar" aria-label="Engineering inspector">
     <div class="inspector-tabs">
-      <button class="inspector-tab active" data-inspector="properties">크기·모양</button>
-      <button class="inspector-tab" data-inspector="assistant">말로 수정</button>
-      <button class="inspector-tab" data-inspector="history">되돌리기</button>
+      <button class="inspector-tab" data-inspector="properties">치수 수정</button>
+      <button class="inspector-tab active" data-inspector="assistant">✦ CAD 채팅</button>
+      <button class="inspector-tab" data-inspector="history">수정 기록</button>
     </div>
     <div class="inspector-scroll">
       <section id="propertiesPane">
@@ -119,14 +119,34 @@
         <div class="quick-actions"><button id="duplicateButton">▣ 복사 만들기</button><button id="exportStlButton">↓ 3D 파일</button><button id="exportJsonButton">↓ 백업</button></div>
       </section>
       <section id="assistantPane" hidden>
-        <div class="section-heading top-heading"><span>문장으로 수정하기</span><span class="verified-label">간단한 문장 인식</span></div>
-        <div class="assistant-intro"><div class="assistant-orb">✧</div><b>하고 싶은 변경을 적어보세요</b><p>지원하는 문장에 맞춰 숫자를 바꿉니다. 아직 실제 AI 모델과 연결되어 있지는 않아요.</p></div>
-        <div id="chatHistory" class="chat-history"><div class="chat-response">예: <b>첫 링크 150</b>, <b>관절 1 45</b>, <b>create plate</b></div></div>
-        <div class="prompt-presets"><button class="prompt-preset" data-command="link1 150 link2 100">팔 길게 만들기</button><button class="prompt-preset" data-command="angle1 45 angle2 -30">팔 각도 바꾸기</button><button class="prompt-preset" data-command="구멍판 만들기 구멍 4 구멍 지름 8">구멍판 설계</button><button class="prompt-preset" data-command="ㄱ자 브래킷 만들기 길이 100 높이 80">ㄱ자 연결대 설계</button></div>
-        <label class="field-label" for="commandInput">바꾸고 싶은 점</label>
-        <textarea id="commandInput" class="command-input" rows="5" placeholder="예: 첫 링크 150, 관절 2 -30"></textarea>
-        <button class="apply-button" id="sendCommandButton">✧ 명령 적용하기</button>
-        <p class="note">실제 로봇은 움직이지 않아요. 이 화면은 로컬 3D 모델만 바꿉니다.</p>
+        <div class="ai-chat-shell">
+          <div class="ai-chat-head">
+            <div class="ai-avatar">✦</div>
+            <div class="ai-chat-heading"><strong>CAD 채팅 편집기</strong><span>입력 → 미리보기 → 즉시 3D 반영</span></div>
+            <span class="chat-local-tag" title="외부 AI 서버에 연결되지 않은 규칙 기반 편집기">로컬 명령</span>
+          </div>
+          <div class="chat-engine-note"><span class="chat-engine-dot"></span><span>바로 수정할 수 있어요. 현재는 <strong>규칙 기반 채팅</strong>이며 외부 AI 모델은 연결되지 않았습니다.</span></div>
+          <div class="ai-chat-tools"><span id="chatSessionName">현재 모델의 설계 대화</span><button id="chatClearButton" type="button">대화 지우기</button></div>
+          <div id="chatHistory" class="chat-history" role="log" aria-label="CAD 편집 대화" aria-live="polite" aria-relevant="additions">
+            <div class="chat-response">안녕하세요! 🦾 원하는 로봇이나 부품의 모양을 말해주세요.<br>예: “구멍 4개짜리 판 만들어줘, 지름은 8mm”</div>
+          </div>
+          <div class="chat-prompt-section">
+            <span class="chat-prompt-title">이렇게 말해보세요</span>
+            <div class="prompt-presets">
+              <button class="prompt-preset" data-command="구멍 4개 판 만들어줘, 구멍 지름 8mm">구멍 4개 판 만들기</button>
+              <button class="prompt-preset" data-command="첫 번째 팔 길이 180mm">로봇팔 길게</button>
+              <button class="prompt-preset" data-command="ㄱ자 브래킷 높이 90mm">ㄱ자 부품</button>
+              <button class="prompt-preset" data-command="구멍 크기 2mm 늘려줘">구멍 조금 더 크게</button>
+            </div>
+          </div>
+          <div class="chat-compose">
+            <label class="field-label" for="commandInput">CAD 수정 요청</label>
+            <textarea id="commandInput" class="command-input" rows="3" placeholder="예: 구멍 4개 판 만들고 가로 180mm, 세로 100mm로 해줘" aria-describedby="chatLivePreview"></textarea>
+            <div id="chatLivePreview" class="chat-live-preview" role="status" aria-live="polite"><span class="preview-dot"></span> 내용을 입력하면 변경 사항을 미리 보여드려요.</div>
+            <div class="chat-compose-bottom"><span>Enter 전송 · Shift+Enter 줄바꿈</span><button class="apply-button" id="sendCommandButton" type="button">수정 적용 <span>↗</span></button></div>
+            <p class="chat-security">요청은 이 브라우저에서 처리됩니다. 실제 로봇 제어·외부 AI 호출·STEP 생성은 하지 않습니다.</p>
+          </div>
+        </div>
       </section>
       <section id="historyPane" hidden><div class="section-heading top-heading"><span>수정 기록</span><span class="verified-label">LOCAL ONLY</span></div><p class="note">이 기기에 저장된 수정 기록이에요. 이전 상태로 되돌릴 수 있어요.</p><div id="historyList" class="history-list"></div><div class="quick-actions"><button id="undoHistoryButton">↶ 이전으로</button><button id="redoHistoryButton">↷ 다시 실행</button></div></section>
     </div>
@@ -154,5 +174,5 @@
     <div class="welcome-footer"><button id="skipWelcomeButton">기존 모델로 계속하기</button><button id="welcomeExpertButton">전문가 화면으로 이동</button></div>
   </div>
 </dialog>
-<script src="./workspace.js" defer></script>
+<script src="/workspace/workspace.js?v=22" defer></script><script src="/workspace/chat-editor.js?v=22" defer></script>
 </body></html>
