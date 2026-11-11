@@ -141,6 +141,7 @@ test("v2.7: schematic view is an SVG concept document",()=>{
 
 const kiSch=window.robotForgeKiCadSchematic;
 const readySchematic=pcb.test.starter();
+for(const c of readySchematic.components)c.profile=catalog.profiles[c.kind].key;
 net.add(readySchematic,"DATA","J1:3","U1:2");
 net.add(readySchematic,"GND","J1:1","U1:1");
 test("v2.8: experimental KiCad schematic exporter exists",()=>{
@@ -279,6 +280,7 @@ test("v2.9: interactive parity JSON export includes a blocked manufacture gate",
  assert.ok(result.pcb.pads.includes("J1:1"));
 });
 
+pcb.test.set(readySchematic);
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
