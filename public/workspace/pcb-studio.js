@@ -367,6 +367,8 @@ function updatePartEditor(){
   }
   if(changed)footprint.value=c.profile||"";
  }
+ const official=$s("#pcbUpstreamFootprintLink"),sourceFootprint=precisePads.get(c);
+ if(official){official.hidden=!sourceFootprint;if(sourceFootprint){official.href="https://github.com/KiCad/kicad-footprints/blob/master/"+sourceFootprint.sourcePath;official.textContent="KiCad 원본 확인 · "+sourceFootprint.sourceBlobSha.slice(0,8)+" (기록된 버전 SHA)";}}
  if(note){
   const source=precisePads.verify(c);
   note.textContent=source.exactPadDefinitions?
@@ -421,6 +423,107 @@ function applyPinRole(){
  if(ok)notice("핀 역할을 저장했습니다. 검사는 보조 규칙이며 정식 ERC가 아닙니다.");
 }
 
+
+const RECORD_FIELDS=[
+ ["#pcbPartManufacturer","manufacturer"],["#pcbPartMpn","mpn"],
+ ["#pcbPartDatasheetUrl","datasheetUrl"],["#pcbPartPitch","datasheetPitchMm"],
+ ["#pcbMaxVoltage","maxVoltageV"],["#pcbUseVoltage","operatingVoltageV"],
+ ["#pcbMaxCurrent","maxCurrentMa"],["#pcbUseCurrent","operatingCurrentMa"]
+];
+const numericPartKeys=new Set(["datasheetPitchMm","maxVoltageV","operatingVoltageV","maxCurrentMa","operatingCurrentMa"]);
+function currentPart(){
+ return selected?.type==="component"?board.components.find(c=>c.id===selected.id):null;
+}
+function partInputData(){
+ const record={};
+ for(const [id,key] of RECORD_FIELDS){
+  const field=$s(id),raw=String(field?.value||"").trim();
+  record[key]=numericPartKeys.has(key)?(raw===""?null:Number(raw)):raw;
+ }
+ record.reviewedByUser=Boolean($s("#pcbReviewedPart")?.checked);
+ return record;
+}
+function savePartRecord(){
+ const c=currentPart();
+ if(!c)return notice("부품을 선택한 다음 데이터시트를 입력하세요.",true);
+ const record=partInputData();
+ if(!quality.validPart(record))return notice("데이터시트 주소는 HTTPS 형식, 수치는 0보다 큰 유효한 값이어야 합니다.",true);
+ const ok=transact(b=>{b.components.find(item=>item.id===c.id).part=record},
+  c.id+"의 부품 기록을 저장했습니다. 입력 정보의 정확성은 사용자 확인이 필요합니다.");
+ if(ok){
+  const result=quality.analyzePart({...c,part:record},partlib);
+  const status=$s("#pcbPartRecordStatus");
+  if(status)status.textContent=(result.errors.length?"⚠ 입력 범위 충돌 "+result.errors.length+"건":"부품 기록 저장됨")+
+   (result.warnings.length?" · 추가 확인 "+result.warnings.length+"건":"")+
+   "\n데이터시트 자동 검증·제조 승인 불가";
+ }
+ return ok;
+}
+function updateDatasheetEditor(){
+ const c=currentPart(),box=$s("#pcbDatasheetDetails");
+ if(box)box.hidden=!c;
+ if(!c)return;
+ const record=quality.getPart(c),stamp=c.id+"|"+JSON.stringify(record);
+ if(box?.dataset?.editing===stamp)return;
+ for(const [id,key]of RECORD_FIELDS){
+  const field=$s(id);if(field)field.value=record[key]??"";
+ }
+ const checked=$s("#pcbReviewedPart");if(checked)checked.checked=!!record.reviewedByUser;
+ if(box?.dataset)box.dataset.editing=stamp;
+ const status=$s("#pcbPartRecordStatus");
+ if(status)status.textContent="입력한 부품 규격은 수동 확인 데이터입니다. 원본 데이터시트 검증을 대체하지 않습니다.";
+}
+function loadImportedReports(){
+ let previous=null;
+ try{const v=localStorage.getItem(KEY+"reports:"+projectKey());if(v&&v.length<60000)previous=JSON.parse(v)}catch{}
+ importedReports={};
+ for(const kind of ["erc","drc"]){
+  const a=previous?.[kind];
+  if(a&&typeof a==="object"&&a.source==="USER_IMPORTED_UNVERIFIED"&&
+    typeof a.fingerprint==="string"&&Number.isInteger(a.issueCount)&&a.issueCount>=0&&a.issueCount<=10000)
+   importedReports[kind]=a;
+ }
+}
+function saveImportedReports(){
+ try{localStorage.setItem(KEY+"reports:"+projectKey(),JSON.stringify(importedReports))}catch{
+  notice("보고서 로컬 기록을 저장하지 못했습니다.",true);
+ }
+}
+function acceptDiagnosticReport(kind,text,fileName="uploaded.json"){
+ const parsed=quality.parseImportedFile(text,kind);
+ importedReports[kind]={...parsed,fingerprint:quality.fingerprint(board),
+  importedAt:new Date().toISOString(),fileName:String(fileName).slice(0,120)};
+ saveImportedReports();renderImportedReportSummary();
+ return parsed;
+}
+async function openDiagnosticFile(kind,event){
+ const input=event?.target,entry=input?.files?.[0];if(!entry)return;
+ try{
+  if(entry.size>5000000)throw Error("파일 크기가 5MB를 초과합니다.");
+  const parsed=acceptDiagnosticReport(kind,await entry.text(),entry.name);
+  notice("KiCad "+kind.toUpperCase()+" 보고서 참고 정보: "+
+   (parsed.issueCount?"진단 "+parsed.issueCount+"건":"보고된 진단 항목 0건")+
+   " · 파일 출처/현재 설계 일치 미검증",Boolean(parsed.issueCount));
+ }catch(e){notice("KiCad 진단 파일 불러오기 실패: "+(e?.message||String(e)),true)}
+ if(input)input.value="";
+}
+function clearDiagnosticReports(){
+ importedReports={};saveImportedReports();renderImportedReportSummary();
+ notice("불러온 진단 보고서 기록을 초기화했습니다.");
+}
+function renderImportedReportSummary(){
+ const box=$s("#pcbImportedReports");if(!box)return;
+ const overview=quality.reportOverview(importedReports,board),labels=[];
+ for(const key of ["erc","drc"]){
+  const info=overview.checks[key];
+  labels.push(!info?key.toUpperCase()+": 보고서 미등록":
+   key.toUpperCase()+": "+info.issueCount+"건 (외부 파일) · "+
+   (info.currentLocalDraft?"가져온 이후 로컬 수정 감지 안 됨":"현재 로컬 설계와 버전 불일치"));
+ }
+ box.textContent=labels.join("\n")+
+  "\n※ 외부 파일의 진위·KiCad 프로젝트 일치는 검증되지 않았습니다. 제조 승인 불가";
+}
+
 function renderInspection(){
  const result=validate(),field=$s("#pcbValidation");
  const audit=parityFor(board),auditField=$s("#pcbParityStatus");
@@ -451,6 +554,15 @@ function renderInspection(){
  }
  renderNetEditor();
  updatePartEditor();
+ updateDatasheetEditor();
+ const qualityBox=$s("#pcbPartQualityStatus");
+ if(qualityBox){
+  qualityBox.textContent="📄 부품 기록 "+result.partQuality.withPartNumber+"/"+result.partQuality.total+
+   " · 데이터시트 링크 "+result.partQuality.withDatasheet+"개"+
+   (result.partQuality.issues.length?"\n⚠ 사용자 입력 정격·핀 간격 충돌 "+result.partQuality.issues.length+"건":"")+
+   "\n※ 제조사 부품 적합성 및 원본 데이터시트는 미검증";
+ }
+ renderImportedReportSummary();
  const ercBox=$s("#pcbErcSummary");
  if(ercBox){
   const erc=result.erc;
@@ -723,6 +835,10 @@ function bind(){
  $s("#pcbSchematicView")?.addEventListener("click",()=>setPcbView("schematic"));
  $s("#pcbApplyFootprintButton")?.addEventListener("click",applyPartProfile);
  $s("#pcbSavePinRoleButton")?.addEventListener("click",applyPinRole);
+ $s("#pcbSavePartRecord")?.addEventListener("click",savePartRecord);
+ $s("#pcbErcReportFile")?.addEventListener("change",event=>{openDiagnosticFile("erc",event)});
+ $s("#pcbDrcReportFile")?.addEventListener("change",event=>{openDiagnosticFile("drc",event)});
+ $s("#pcbClearReports")?.addEventListener("click",clearDiagnosticReports);
  $s("#pcbPinRoleSelect")?.addEventListener("change",updateRoleInput);
  $s("#pcbAddNetButton")?.addEventListener("click",registerNet);
  $s("#pcbLoadExampleButton")?.addEventListener("click",loadExample);
@@ -769,5 +885,5 @@ function bind(){
 }
 document.addEventListener("DOMContentLoaded",bind);
 window.robotForgePCB={open,close,add,remove,rotate,undo,setTool,addRoute,autoRouteMissing,sizeUpdate,validate,showExport,exportBoard,
- test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,updatePartEditor,applyPartProfile,applyPinRole,schem,partlib,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
+ test:{starter,isValidShape,padPos,pads,unionNets,shapeSvg,kicadDraft,svgDocument,savePartRecord,partInputData,acceptDiagnosticReport,clearDiagnosticReports,updateDatasheetEditor,quality,pointSegDist,intersects,registerNet,unregisterNet,loadExample,setPcbView,updatePartEditor,applyPartProfile,applyPinRole,schem,partlib,netlib,read:()=>deep(board),set(b){if(!isValidShape(b))throw Error("Invalid PCB layout");board=deep(b);draw()},draw,load}};
 })();
