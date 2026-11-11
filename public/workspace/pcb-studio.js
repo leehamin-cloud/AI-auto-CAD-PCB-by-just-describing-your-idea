@@ -548,7 +548,8 @@ function kicadDraft(b=board){
   const comp=geometry(c),profile=partlib.get(c);
   line.push(' (footprint '+q(profile?profile.footprint:"RobotForge:"+c.kind)+' (layer "F.Cu") (at '+f(c.x)+' '+f(c.y)+' '+c.rotation+') (uuid "'+uid("fp"+c.id)+'")');
   line.push('  (property "Reference" '+q(c.id)+' (at 0 '+f(-comp.h/2-2.5)+') (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.12))))');
-  line.push('  (property "Value" '+q(comp.label)+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
+  const values={resistor:"R_GENERIC",led:"LED_GENERIC",capacitor:"C_GENERIC",conn2:"HEADER_2",conn3:"HEADER_3",ic4:"IC_GENERIC"};
+  line.push('  (property "Value" '+q(values[c.kind])+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
