@@ -493,6 +493,20 @@ test("v3.1: part information controls create an editable record and support undo
  assert.equal(pcb.test.read().components.find(c=>c.id==="J1").part,undefined);
 });
 
+
+test("v3.1: BOM CSV contains MPN and never runs spreadsheet formulas",()=>{
+ const b=pcb.test.starter();
+ b.components[0].part={manufacturer:"=2+3",mpn:"=HYPERLINK(\"https://example.com\")",
+  datasheetUrl:"https://example.org/part.pdf"};
+ pcb.test.set(b);
+ const csv=pcb.exportBoard("parts-csv");
+ assert.equal(csv.charCodeAt(0),0xfeff,"CSV must use a real UTF-8 BOM character");
+ assert.match(csv,/Manufacturer/);
+ assert.match(csv,/'=2\+3/);
+ assert.match(csv,/'=HYPERLINK/);
+ assert.match(csv,/\r\n/);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
