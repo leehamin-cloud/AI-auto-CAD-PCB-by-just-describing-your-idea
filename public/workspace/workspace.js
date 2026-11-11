@@ -24,7 +24,7 @@ const defaults={
 };
 const modelNames={arm:"2-DOF Research Arm",plate:"Drilled Mounting Plate",block:"Parametric Solid Block",bracket:"L Mounting Bracket",shaft:"Solid Round Shaft"};
 const modelSubtitles={arm:"2 revolute joints · visual mesh",plate:"Parametric through-holes · closed mesh",block:"Simple rectangular volume",bracket:"90° solid L bracket · closed mesh",shaft:"Round solid shaft · closed mesh"};
-const colors=["#7edb9d","#b6f986","#d3e9ca","#78ab82","#c2dfb2","#99c99e","#82a0a0"];
+const colors=["#67b8ef","#86cdf6","#c7e8ff","#4c99ce","#9dd8f7","#72aed9","#7aaec9"];
 function makeProject(name){
  const model="arm", params=clone(defaults.arm), material="aluminum";
  const initial={model,params:clone(params),material,label:"Initial state",time:Date.now()};
@@ -257,17 +257,17 @@ function draw(){
  const dpr=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr)}
  const ctx=canvas.getContext("2d");if(!ctx)return;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
  const b=xyzBounds();viewCenter=b.center;viewScale=Math.min(w*.75,h*.73)/Math.max(b.size,90)*cam.zoom;
- if(grid){ctx.save();ctx.lineWidth=.6;ctx.strokeStyle="#35513b66";for(let v=-350;v<=350;v+=25){const A=project([-350,v,-10],w,h),B=project([350,v,-10],w,h),C=project([v,-350,-10],w,h),D=project([v,350,-10],w,h);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.moveTo(C[0],C[1]);ctx.lineTo(D[0],D[1]);ctx.stroke()}
+ if(grid){ctx.save();ctx.lineWidth=.6;ctx.strokeStyle="#9bc5e650";for(let v=-350;v<=350;v+=25){const A=project([-350,v,-10],w,h),B=project([350,v,-10],w,h),C=project([v,-350,-10],w,h),D=project([v,350,-10],w,h);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.moveTo(C[0],C[1]);ctx.lineTo(D[0],D[1]);ctx.stroke()}
  const O=project([0,0,0],w,h);for(const [v,color] of [[[130,0,0],"#dd877d"],[[0,130,0],"#78c58d"],[[0,0,130],"#73a8e8"]]){const P=project(v,w,h);ctx.beginPath();ctx.moveTo(O[0],O[1]);ctx.lineTo(P[0],P[1]);ctx.strokeStyle=color;ctx.lineWidth=1.65;ctx.stroke()}
  ctx.restore()}
  const faces=[];renderedFaces=[];const axes=cameraAxes(),light=unit([.25,-.45,.9]);let count=0;
  for(const part of parts){if(current().hiddenParts.includes(part.id))continue;for(const t of part.triangles){const points=t.map(v=>project(v,w,h));let normal=unit(cross(sub3(t[1],t[0]),sub3(t[2],t[0])));const shade=.42+.51*Math.abs(dot(normal,light));const depth=(points[0][2]+points[1][2]+points[2][2])/3;faces.push({points,depth,color:part.color,shade,id:part.id,selected:part.id===selectedPart});count++}}
  faces.sort((a,b)=>a.depth-b.depth);
- for(const f of faces){ctx.beginPath();ctx.moveTo(f.points[0][0],f.points[0][1]);for(let i=1;i<3;i++)ctx.lineTo(f.points[i][0],f.points[i][1]);ctx.closePath();ctx.fillStyle=litColor(f.color,f.shade);ctx.fill();if(edges||f.selected){ctx.strokeStyle=f.selected?"#ecffb8aa":"#12261e55";ctx.lineWidth=f.selected?1.3:.45;ctx.stroke()}renderedFaces.push(f)}
+ for(const f of faces){ctx.beginPath();ctx.moveTo(f.points[0][0],f.points[0][1]);for(let i=1;i<3;i++)ctx.lineTo(f.points[i][0],f.points[i][1]);ctx.closePath();ctx.fillStyle=litColor(f.color,f.shade);ctx.fill();if(edges||f.selected){ctx.strokeStyle=f.selected?"#0b79c8b0":"#27638d50";ctx.lineWidth=f.selected?1.3:.45;ctx.stroke()}renderedFaces.push(f)}
  if(current().model==="arm"){
   const a=current().params,t1=a.angle1*Math.PI/180,t2=(a.angle1+a.angle2)*Math.PI/180;
   const coords=[[0,0,16],[a.link1*Math.cos(t1),0,16+a.link1*Math.sin(t1)],[a.link1*Math.cos(t1)+a.link2*Math.cos(t2),0,16+a.link1*Math.sin(t1)+a.link2*Math.sin(t2)]];
-  coords.forEach((v,i)=>{const S=project(v,w,h);ctx.beginPath();ctx.arc(S[0],S[1],3.5,0,Math.PI*2);ctx.fillStyle="#e2ffbe";ctx.fill();ctx.fillStyle="#99bf91";ctx.font="10px sans-serif";ctx.fillText(i===0?"J1":i===1?"J2":"TCP",S[0]+9,S[1]-8)});
+  coords.forEach((v,i)=>{const S=project(v,w,h);ctx.beginPath();ctx.arc(S[0],S[1],3.5,0,Math.PI*2);ctx.fillStyle="#e7faff";ctx.fill();ctx.fillStyle="#4e92b9";ctx.font="10px sans-serif";ctx.fillText(i===0?"J1":i===1?"J2":"TCP",S[0]+9,S[1]-8)});
  }
  $("#viewportStats").textContent=fmt(count,0)+" TRIANGLES · "+parts.length+" COMPONENTS";
 }
@@ -508,25 +508,7 @@ function parseRuleCommand(text,model){
  if(Object.keys(changes).length===0)return {changes:{},error:null};
  return {changes,error:null};
 }
-function applyCommand(){
- const field=$("#commandInput"),cmd=field.value.trim();
- if(!cmd){notify("무엇을 바꾸고 싶은지 입력해주세요.",true);return}
- const hist=$("#chatHistory"),msg=document.createElement("div");msg.className="chat-user";msg.textContent=cmd;hist.append(msg);
- const model=detectTemplate(cmd);let switched=false,reply="";
- if(model&&model!==current().model){setTemplate(model);switched=true;reply=({arm:"로봇팔",plate:"구멍판",block:"블록",bracket:"ㄱ자 브래킷",shaft:"원통 축"}[model]||model)+" 모델을 선택했어요. "}
- const parsed=parseRuleCommand(cmd,current().model);
- if(parsed.error)reply+=parsed.error;
- else if(Object.keys(parsed.changes).length){
-  const next={...current().params,...parsed.changes},error=validateDesign(current().model,next);
-  if(error)reply+=error;
-  else{mutate(p=>Object.assign(p.params,parsed.changes),"입력 명령: "+Object.keys(parsed.changes).join(", "));
-   reply+="치수를 변경하고 3D 모델을 다시 만들었어요: "+Object.entries(parsed.changes).map(([k,v])=>k+" "+v).join(", ")+".";
-  }
- }else if(!switched)reply="알아들을 수 있는 치수가 없어요. 예: ‘구멍 4’, ‘구멍 지름 8’, ‘첫 링크 150’.";
- const response=document.createElement("div");response.className="chat-response";response.textContent=reply;hist.append(response);hist.scrollTop=hist.scrollHeight;
- log("RULE",reply);notify(reply,Boolean(parsed.error));field.value="";
-}
-
+function applyCommand(){if(window.robotForgeChat?.send)return window.robotForgeChat.send();notify("CAD 채팅 기능을 불러오지 못했어요. 새로고침 해주세요.",true)}
 function bindUI(){
  $("#createProjectButton").addEventListener("click",()=>{$("#projectDialog").showModal();renderProjectList()});
  $("#projectPicker").addEventListener("click",()=>{$("#projectDialog").showModal();renderProjectList()});
