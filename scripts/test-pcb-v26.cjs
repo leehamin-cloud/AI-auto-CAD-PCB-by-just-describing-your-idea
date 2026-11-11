@@ -30,7 +30,9 @@ const context=vm.createContext({window,document,localStorage,setTimeout:fn=>0,
 function run(file){vm.runInContext(fs.readFileSync(path.join(root,file),"utf8"),context,{filename:file})}
 run("public/workspace/pcb-netlist.js");
 run("public/workspace/pcb-parts.js");
+run("public/workspace/pcb-pad-library.js");
 run("public/workspace/pcb-schematic.js");
+run("public/workspace/pcb-parity.js");
 run("public/workspace/pcb-kicad-schematic.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
@@ -207,11 +209,82 @@ test("v2.8: browser export creates experimental schematic text",()=>{
 });
 
 pcb.test.set(readySchematic);
+
+const padsLibrary=window.robotForgeFootprintPads,parity=window.robotForgePCBParity;
+test("v2.9: six KiCad upstream source pad metadata records available",()=>assert.equal(Object.keys(padsLibrary.models).length,6));
+test("v2.9: every library-backed component has authentic pad shape and diameter",()=>{
+ for(const comp of pcb.test.starter().components){
+  comp.profile=catalog.profiles[comp.kind].key;
+  const info=padsLibrary.get(comp);
+  assert.equal(info.pads.length,catalog.pins(comp).length);
+  assert.ok(info.pads.every(p=>p.drill>0&&p.size.every(v=>v>0)));
+ }
+});
+test("v2.9: KiCad upstream LED first pad is rectangular and has drill 0.9mm",()=>{
+ const c={id:"D1",kind:"led",profile:catalog.profiles.led.key};
+ const one=padsLibrary.get(c).pads[0];
+ assert.equal(one.shape,"rect");assert.equal(one.drill,0.9);assert.equal(one.size[0],1.8);
+});
+test("v2.9: connector pad 1 is rectangular and physical header pad spacing is 2.54",()=>{
+ const c={id:"J1",kind:"conn3",profile:catalog.profiles.conn3.key};
+ const spec=padsLibrary.pads(c);
+ assert.equal(spec[0].shape,"rect");
+ assert.ok(Math.abs(spec[1].y-spec[0].y-2.54)<1e-7);
+});
+test("v2.9: KiCad PCB now exports actual LED rect and 1.8mm pad size",()=>{
+ const example=pcb.test.starter();example.components[2].profile=catalog.profiles.led.key;
+ pcb.test.set(example);
+ const output=pcb.test.kicadDraft();
+ assert.match(output,/\(pad "1" thru_hole rect \(at -1\.2700 0\.0000\) \(size 1\.8000 1\.8000\) \(drill 0\.9000\)/);
+ assert.match(pcb.test.svgDocument(),/data-pad="D1:1"[^>]*width="1\.8"/);
+ pcb.test.set(pcb.test.starter());
+});
+test("v2.9: parity detects a missing required physical route",()=>{
+ const b=pcb.test.starter();net.add(b,"DATA","J1:3","U1:2");
+ const result=parity.parity(b,{pads:pcb.test.pads,unionNets:pcb.test.unionNets});
+ assert.ok(result.errors.some(x=>x.includes("오픈")));
+ assert.equal(result.manufacturingAuthorized,false);
+});
+test("v2.9: parity recognizes a satisfied required connection",()=>{
+ const b=pcb.test.starter();net.add(b,"DATA","J1:3","U1:2");
+ b.traces.push({id:"test-route",a:"J1:3",b:"U1:2",width:0.5});
+ const result=parity.parity(b,{pads:pcb.test.pads,unionNets:pcb.test.unionNets});
+ assert.equal(result.errors.length,0);
+});
+test("v2.9: parity reports unintended copper short",()=>{
+ const b=pcb.test.starter();
+ net.add(b,"DATA","J1:3","U1:2");net.add(b,"GND","J1:1","U1:1");
+ b.traces.push({id:"bad-bridge",a:"J1:1",b:"J1:3",width:0.5});
+ const result=parity.parity(b,{pads:pcb.test.pads,unionNets:pcb.test.unionNets});
+ assert.ok(result.errors.some(x=>x.includes("쇼트")));
+});
+test("v2.9: selected profile exact pad positions match upstream specs",()=>{
+ const b=pcb.test.starter();b.components[0].profile=catalog.profiles.conn3.key;
+ b.components[2].profile=catalog.profiles.led.key;
+ const result=parity.parity(b,{pads:pcb.test.pads,unionNets:pcb.test.unionNets});
+ assert.equal(result.summary.referencePadCount,5);
+ assert.equal(result.errors.length,0);
+});
+test("v2.9: parity report never claims official ERC/DRC success",()=>{
+ const b=pcb.test.starter();
+ const result=parity.manifest(b,{pads:pcb.test.pads,unionNets:pcb.test.unionNets});
+ assert.equal(result.fabricationApproval,"BLOCKED");
+ assert.equal(result.officialKiCadChecks.ercPassed,false);
+ assert.equal(result.officialKiCadChecks.schematicPcbParityValidated,false);
+});
+test("v2.9: interactive parity JSON export includes a blocked manufacture gate",()=>{
+ pcb.test.set(pcb.test.starter());
+ const result=JSON.parse(pcb.exportBoard("parity"));
+ assert.equal(result.fabricationApproval,"BLOCKED");
+ assert.ok(result.pcb.pads.includes("J1:1"));
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
  fs.writeFileSync(path.join(dest,"robot-forge-demo.kicad_pcb"),generated,"utf8");
  fs.writeFileSync(path.join(dest,"robot-forge-draft.kicad_sch"),kiSch.generate(readySchematic),"utf8");
+ fs.writeFileSync(path.join(dest,"robot-forge-parity.json"),JSON.stringify(parity.manifest(readySchematic,{pads:pcb.test.pads,unionNets:pcb.test.unionNets}),null,2),"utf8");
  fs.writeFileSync(path.join(dest,"robot-forge-logical-plan.json"),JSON.stringify({
   format:"RobotForgeLogicalNetPlan",version:1,kind:"UNVERIFIED_PIN_PLAN",
   nets:pcb.test.read().schematic.nets,disclaimer:"Not validated in KiCad, not manufacturing ready."
