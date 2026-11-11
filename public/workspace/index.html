@@ -101,8 +101,8 @@
         <label class="field-label" for="templateSelect">① 만들 물건 선택</label>
         <select class="select-control" id="templateSelect">
           <option value="arm">🦾 움직이는 로봇팔</option>
-          <option value="plate">▭ 평평한 판</option>
-          <option value="block">◼ 네모 블록</option>
+          <option value="plate">▭ 구멍이 있는 판</option>
+          <option value="block">◼ 네모 블록</option><option value="bracket">⌑ ㄱ자 연결 브래킷</option><option value="shaft">◉ 원통 축</option>
         </select>
         <div class="section-heading section-heading-sm"><span>② 크기·움직임 조절</span><span>mm / °</span></div>
         <p class="beginner-parameter-tip">모든 숫자의 단위는 <b>mm(밀리미터)</b>예요. 관절 각도는 °로 표시됩니다.</p><div id="dynamicFields" class="dynamic-fields"></div>
@@ -112,7 +112,7 @@
           <option value="petg">PETG (3D 프린터용 플라스틱)</option>
           <option value="steel">강철 (무거운 금속)</option>
         </select>
-        <div class="mass-summary"><div><span>대략적인 부피</span><strong id="volumeEstimate">—</strong></div><div><span>예상 무게 (부품 겹침 포함)</span><strong id="massEstimate">—</strong></div></div>
+        <div class="mass-summary"><div><span>대략적인 부피</span><strong id="volumeEstimate">—</strong></div><div><span>예상 무게 (부품 겹침 포함)</span><strong id="massEstimate">—</strong></div></div><div id="meshHealth" class="mesh-health" role="status">메시 형상 검사 중…</div>
         <button class="apply-button" id="applyParametersButton">↻ 3D 모양에 적용하기</button>
         <div class="note">지금 만드는 것은 <b>브라우저의 3D 미리보기 모델</b>이에요. 정밀 CAD·안전 검증이나 실제 제작 준비가 완료된 상태는 아니에요.</div>
         <div class="section-heading section-heading-sm">다른 작업</div>
@@ -135,7 +135,7 @@
 </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<dialog id="exportDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>파일로 저장하기</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>이 기기에 파일을 다운로드할 수 있어요. 정밀 STEP 파일과 실제 제작 검증은 아직 지원하지 않습니다.</p><div class="export-choices"><button type="button" data-export="stl">◈ <span><b>STL mesh</b><small>Actual triangles · millimeter units</small></span><em>EXPORT ↧</em></button><button type="button" data-export="json">{} <span><b>Robot Forge JSON</b><small>Scene parameters · local backup</small></span><em>EXPORT ↧</em></button><button type="button" data-export="bom">▤ <span><b>Material BOM CSV</b><small>Estimated volumes and masses</small></span><em>EXPORT ↧</em></button></div></form></dialog>
+<dialog id="exportDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>파일로 저장하기</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>이 기기에 파일을 다운로드할 수 있어요. 정밀 STEP 파일과 실제 제작 검증은 아직 지원하지 않습니다.</p><div class="export-choices"><button type="button" data-export="stl">◈ <span><b>STL mesh</b><small>Actual triangles · millimeter units</small></span><em>EXPORT ↧</em></button><button type="button" data-export="obj">◇ <span><b>OBJ 3D 모델</b><small>3D 모델링 프로그램에서 열 수 있는 표면 메시</small></span><em>다운로드 ↧</em></button><button type="button" data-export="json">{} <span><b>Robot Forge JSON</b><small>Scene parameters · local backup</small></span><em>EXPORT ↧</em></button><button type="button" data-export="bom">▤ <span><b>Material BOM CSV</b><small>Estimated volumes and masses</small></span><em>EXPORT ↧</em></button></div></form></dialog>
 <dialog id="projectDialog" class="modal"><form method="dialog"><div class="modal-head"><h2>내 프로젝트</h2><button class="icon-btn" value="cancel" aria-label="Close">×</button></div><p>프로젝트는 이 브라우저에만 저장됩니다. 중요한 설계는 JSON 파일로 백업하세요.</p><div id="projectList" class="project-list"></div><label class="field-label" for="newProjectName">새 프로젝트 이름</label><input id="newProjectName" class="text-input" maxlength="70" value="Untitled project"><div class="modal-actions"><button type="button" id="newProjectSubmit" class="apply-button">＋ 새 프로젝트 만들기</button><button type="button" id="importJsonButton" class="secondary-button">↥ 백업 불러오기</button></div><input type="file" id="importJsonFile" accept=".json,application/json" hidden></form></dialog>
 <dialog id="welcomeDialog" class="welcome-dialog">
   <div class="welcome-top"><span class="welcome-logo">⬡</span><span>ROBOT FORGE <strong>쉬운 시작</strong></span><button id="closeWelcomeButton" aria-label="안내 닫기">×</button></div>
@@ -145,8 +145,10 @@
     <p class="welcome-lead">전문 지식이 없어도 괜찮아요. 원하는 모양을 고르고 숫자만 바꿔보세요.</p>
     <div class="welcome-cards">
       <button class="welcome-card" data-start-template="arm"><span class="welcome-symbol">🦾</span><b>로봇팔 만들기</b><small>팔 길이와 구부리는 각도를 조절해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
-      <button class="welcome-card" data-start-template="plate"><span class="welcome-symbol">▭</span><b>평평한 판 만들기</b><small>판의 가로·세로·두께를 정해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+      <button class="welcome-card" data-start-template="plate"><span class="welcome-symbol">▭</span><b>나사 구멍판 만들기</b><small>구멍 수·지름·위치를 조절해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
       <button class="welcome-card" data-start-template="block"><span class="welcome-symbol">◼</span><b>네모 블록 만들기</b><small>작은 부품의 기본 모양을 만들어요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+      <button class="welcome-card" data-start-template="bracket"><span class="welcome-symbol">⌑</span><b>ㄱ자 브래킷 만들기</b><small>부품을 수직으로 고정하는 연결대예요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
+      <button class="welcome-card" data-start-template="shaft"><span class="welcome-symbol">◉</span><b>원통 축 만들기</b><small>회전하는 축의 길이와 지름을 정해요.</small><span class="welcome-card-action">이걸로 시작 →</span></button>
     </div>
     <p class="welcome-disclaimer">현재는 브라우저에서 3D 모양을 만드는 체험 기능입니다. 실제 로봇 제작·안전 검증 및 서버 기반 CAD는 아직 지원하지 않아요.</p>
     <div class="welcome-footer"><button id="skipWelcomeButton">기존 모델로 계속하기</button><button id="welcomeExpertButton">전문가 화면으로 이동</button></div>
