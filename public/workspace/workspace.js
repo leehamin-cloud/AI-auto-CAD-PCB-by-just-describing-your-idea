@@ -389,8 +389,9 @@ function renderStage(){
     html=title("STEP 3 / 완성한 모델 보관하기","파일로 저장해 볼까요?","3D 모양은 STL 파일로, 나중에 다시 편집할 치수는 JSON 백업으로 저장할 수 있어요.");
     html+='<div class="stage-cards"><div class="stage-card"><div class="small-heading">3D 파일</div><h3>STL 다운로드</h3><p>삼각형으로 이루어진 3D 모양이에요. 부품 간 간섭이나 강도 검사는 하지 않았어요.</p><button class="stage-action" data-stageexport="stl">↓ STL 파일 받기</button></div><div class="stage-card"><div class="small-heading">내 프로젝트 백업</div><h3>JSON 다운로드</h3><p>길이·각도·재료를 저장해 두었다가 이 사이트에서 다시 불러올 수 있어요.</p><button class="stage-action" data-stageexport="json">↓ 백업 파일 받기</button></div><div class="stage-card stage-full"><div class="warn-box">이 파일은 실제 제조 가능 여부를 검증하지 않은 미리보기예요. 공장에 바로 발주하지 마세요.</div></div></div>';
   }
+  if(panel==="manufacturing"&&p.model==="plate")html+='<div class="stage-cards" style="margin-top:12px"><div class="stage-card stage-full"><div class="small-heading">2D CAD 도면</div><h3>DXF 나사 구멍 도면</h3><p>판의 외곽선과 구멍을 CAD 프로그램에서 편집할 수 있도록 저장합니다.</p><button class="stage-action" data-stageexport="dxf">↓ DXF 도면 받기</button></div></div>';
   $("#nonCadStage").innerHTML=html;
-  $$("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
+  $("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
   return;
  }
  if(panel==="electronics"){
@@ -410,6 +411,7 @@ function renderStage(){
   html=title("MANUFACTURING PREVIEW","Files you can inspect.","Download a tessellated STL scene or JSON backup. This browser preview cannot export true parametric STEP or certify manufacture.");
   html+='<div class="stage-cards"><div class="stage-card"><div class="small-heading">STL · TRIANGLE MESH</div><h3>Available</h3><p>Actual assembled surface triangles, dimensions in mm; overlapping parts are not fused.</p><button class="stage-action" data-stageexport="stl">Download STL</button></div><div class="stage-card"><div class="small-heading">JSON · SCENE BACKUP</div><h3>Available</h3><p>Local parameter model and material settings. Suitable for re-import to this preview.</p><button class="stage-action" data-stageexport="json">Download JSON</button></div><div class="stage-card stage-full"><div class="small-heading">INTEGRITY / ENGINEERING REVIEW</div><div class="warn-box">NOT FABRICATION VALIDATED: interference, bolt patterns, tolerances, stress, electrical safety and printer checks are not completed. STL does not replace native CAD or independent verification.</div></div></div>';
  }else return;
+ if(panel==="manufacturing"&&p.model==="plate")html+='<div class="stage-card"><div class="small-heading">2D CAD / DXF</div><h3>Editable drilled plate sketch</h3><p>Actual LINE and CIRCLE entities.</p><button class="stage-action" data-stageexport="dxf">Download DXF</button></div>';
  $("#nonCadStage").innerHTML=html;
  if(panel==="code"){$("#referenceCode").textContent=codeSample();$("#copyCode").addEventListener("click",()=>copyText(codeSample()))}
  $$("[data-stageexport]").forEach(b=>b.addEventListener("click",()=>exportFile(b.dataset.stageexport)));
