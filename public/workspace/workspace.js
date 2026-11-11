@@ -321,7 +321,37 @@ function renderTree(){const list=parts.map(part=>'<div class="tree-row'+(selecte
  $$("#assemblyTree [data-part]").forEach(el=>el.addEventListener("click",ev=>{if(ev.target.closest("[data-visible]"))return;selectedPart=el.dataset.part;selectPart()}));
  $$("#assemblyTree [data-visible]").forEach(el=>el.addEventListener("click",ev=>{ev.stopPropagation();const p=current(),id=el.dataset.visible;p.hiddenParts=p.hiddenParts.includes(id)?p.hiddenParts.filter(x=>x!==id):p.hiddenParts.concat(id);persist();renderTree();scheduleDraw()}))
 }
-function selectPart(){renderTree();const p=parts.find(x=>x.id===selectedPart);$("#selectedPartName").textContent=p?p.label:"선택한 부품 없음";scheduleDraw()}
+
+function selectPart(){
+ renderTree();
+ const p=parts.find(x=>x.id===selectedPart);
+ $("#selectedPartName").textContent=p?p.label:"선택한 부품 없음";
+ const quick=$("#selectionQuickEdit");
+ if(quick){
+  quick.hidden=!p;
+  if(p)$("#selectionSummary").textContent=p.label;
+ }
+ scheduleDraw();
+}
+function selectedParameterKey(){
+ const model=current().model;
+ if(model==="arm")return {base:"base",shoulder:"angle1",link1:"link1",elbow:"angle2",link2:"link2",tool:"payload"}[selectedPart]||"link1";
+ if(model==="plate")return "hole_count";
+ if(model==="shaft")return "diameter";
+ if(model==="bracket")return "thickness";
+ return "length";
+}
+function focusSelectedPart(){
+ if(!selectedPart)return;
+ const tab=$('.inspector-tab[data-inspector="properties"]');
+ if(tab)tab.click();
+ const target=$("#param-"+selectedParameterKey());
+ if(target){
+  target.focus();target.select?.();
+  if(window.matchMedia("(max-width: 680px)").matches)target.scrollIntoView?.({behavior:"smooth",block:"center"});
+ }
+}
+
 
 const KO_MODE_KEY="robotforge.uiMode.v2";
 const KO_WELCOME_KEY="robotforge.welcomeSeen.v2";
@@ -396,7 +426,7 @@ function renderSummary(){
  $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>{const ko=beginnerParamLabels[key]||[label,""];const adv=(p.model==="arm"&&!simpleArmKeys.has(key))||(p.model==="plate"&&["offset_x","offset_y"].includes(key))?" advanced-parameter":"";const opts=key==="hole_count"?'<select class="select-control field-choice" id="param-hole_count" name="hole_count">'+[0,1,2,4].map(n=>'<option value="'+n+'" '+(p.params.hole_count===n?"selected":"")+'>'+n+'개</option>').join("")+'</select>':'<input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'">';return '<div class="param-row'+adv+'"><div class="param-head"><label for="param-'+key+'">'+esc(ko[0])+'</label><span class="param-unit">'+unit+'</span></div>'+opts+'<small class="param-help">'+esc(ko[1])+'</small></div>'}).join("");
  $("#viewportTitle").textContent=p.model==="arm"?"3D 로봇팔 미리보기":"3D 부품 미리보기";
 }
-function refresh(){if(pendingCadPreview)updateCadGhost(null);rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
+function refresh(){if(pendingCadPreview)updateCadGhost(null);selectedPart=null;const quick=$("#selectionQuickEdit");if(quick)quick.hidden=true;rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
 function editParams(){
  const p=current(),next={};
  for(const [key,label,min,max] of limits[p.model]){const input=$("#param-"+key);const n=Number(input.value);if(!input.value.trim()||!Number.isFinite(n)||n<min||n>max){input.focus();notify(label+" must be between "+min+" and "+max,true);return}next[key]=n}
@@ -582,6 +612,8 @@ function bindUI(){
  $("#orbitTool").addEventListener("click",()=>{$("#orbitTool").classList.add("active");$("#selectTool").classList.remove("active")});
  $$(".view-chip").forEach(b=>b.addEventListener("click",()=>{const views={iso:[-.95,.46],front:[-Math.PI/2,0],top:[-Math.PI/2,Math.PI/2-.01],side:[0,0]};[cam.yaw,cam.pitch]=views[b.dataset.view];$$(".view-chip").forEach(x=>x.classList.toggle("active",x===b));scheduleDraw()}));
  $("#addPartButton").addEventListener("click",()=>{$("#templateSelect").focus();notify("Choose a template on the right. Arbitrary part insertion requires CAD backend.")});
+ $("#editSelectedPartButton")?.addEventListener("click",focusSelectedPart);
+ $("#clearSelectedPartButton")?.addEventListener("click",()=>{selectedPart=null;selectPart()});
  $$(".bottom-tab").forEach(b=>b.addEventListener("click",()=>{activeBottom=b.dataset.bottom;$$(".bottom-tab").forEach(x=>x.classList.toggle("active",x===b));$("#eventLog").hidden=activeBottom!=="events";$("#checkList").hidden=activeBottom!=="output"}));
  $("#toggleBottomButton").addEventListener("click",()=>$("#bottomPanel").classList.toggle("collapsed"));
  $("#mobileNavButton").addEventListener("click",()=>$("#leftSidebar").classList.toggle("mobile-visible"));
