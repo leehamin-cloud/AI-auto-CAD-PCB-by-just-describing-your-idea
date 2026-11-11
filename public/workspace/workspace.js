@@ -106,9 +106,8 @@ function meshPlatePart(a){
  const L=a.length,W=a.width,H=a.thickness,N=a.hole_count,r=a.hole_diameter/2,segments=12;
  if(N===0)return boxPart("plate","Mounting plate (no holes)",[0,0,H/2],[L,W,H],0,colors[0]);
  const xs=N===1?[-L/2,L/2]:[-L/2,0,L/2],ys=N===4?[-W/2,0,W/2]:[-W/2,W/2];
- const triangles=[],rimPoints=[],circleCenters=[];
+ const triangles=[],circleCenters=[];
  function T(p,q,v,z){return tri([p[0],p[1],z],[q[0],q[1],z],[v[0],v[1],z])}
- function pushTop(t){triangles.push(t,tri(t[2].slice(0,2).concat(0),t[1].slice(0,2).concat(0),t[0].slice(0,2).concat(0)))}
  function capTriangle(p,q,v){
   triangles.push(T(p,q,v,H),T(v,q,p,0));
  }
@@ -144,16 +143,8 @@ function meshPlatePart(a){
    triangles.push(tri([c0[0],c0[1],0],[c1[0],c1[1],H],[c0[0],c0[1],H]));
   }
  }
- const area=ringPoints.length; // intentionally unused legacy-safe marker
- // The polygonal bore is a 48-segment approximation of a circle.
- let polygonRemovedArea=0;
- for(const [cx,cy] of circleCenters){
-  const list=[];for(let k=0;k<4;k++){
-   const x0=k===0?0:0;
-  }
-  // Radius is the nominal machining dimension; volume remains an analytic estimate.
-  polygonRemovedArea+=Math.PI*r*r;
- }
+ // Nominal cylinder volume estimate; exported bore walls use tessellated circles.
+ const polygonRemovedArea=circleCenters.length*Math.PI*r*r;
  return {id:"plate",label:"Mounting plate with "+N+" through-holes",color:colors[0],triangles,volume:(L*W-polygonRemovedArea)*H};
 }
 function earClip2d(poly){
