@@ -7,8 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
-const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity,router=window.robotForgeRouter;
-if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit||!router)throw Error("PCB parts, pads, routing, parity and schematic modules are required");
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity,router=window.robotForgeRouter,footprintGraphics=window.robotForgeFootprintGraphics;
+if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit||!router||!footprintGraphics)throw Error("PCB parts, pads, artwork, routing, parity and schematic modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -462,9 +462,17 @@ function shapeSvg(b=board){
     const radius=spec.shape==="oval"?num(Math.min(w,h)/2):"0.12";
     return '<rect'+cls+' x="'+num(p[0]-w/2)+'" y="'+num(p[1]-h/2)+'" width="'+num(w)+'" height="'+num(h)+'" rx="'+radius+'"/>';
   }).join("");
+  const art=footprintGraphics.get(c);
+  const drawn=art?art.lines.filter(l=>l.layer==="F.SilkS"||l.layer==="F.CrtYd").map(l=>{
+   const klass=l.layer==="F.CrtYd"?"pcb-footprint-courtyard":"pcb-footprint-silk";
+   return '<line class="'+klass+'" x1="'+num(l.a[0])+'" y1="'+num(l.a[1])+'" x2="'+num(l.b[0])+'" y2="'+num(l.b[1])+'" stroke-width="'+num(l.w)+'"/>';
+  }).join("")+art.circles.filter(l=>l.layer==="F.SilkS"||l.layer==="F.CrtYd").map(l=>{
+   const klass=l.layer==="F.CrtYd"?"pcb-footprint-courtyard":"pcb-footprint-silk";
+   return '<circle class="'+klass+'" cx="'+num(l.center[0])+'" cy="'+num(l.center[1])+'" r="'+num(l.radius)+'" stroke-width="'+num(l.w)+'"/>';
+  }).join(""):"";
   const label='<text class="pcb-comp-label" x="0" y="'+num(-shape.h/2-2)+'">'+c.id+'</text>';
   return '<g data-component="'+c.id+'" class="pcb-component'+on+'" transform="translate('+num(c.x)+' '+num(c.y)+') rotate('+c.rotation+')">'+
-   '<rect class="pcb-comp-body" x="'+num(-shape.w/2)+'" y="'+num(-shape.h/2)+'" width="'+shape.w+'" height="'+shape.h+'" rx=".8"/>'+label+padHtml+'</g>';
+   '<rect class="pcb-comp-body" x="'+num(-shape.w/2)+'" y="'+num(-shape.h/2)+'" width="'+shape.w+'" height="'+shape.h+'" rx=".8" opacity="'+(art?"0.17":"1")+'"/>'+drawn+label+padHtml+'</g>';
  }).join("");
 
  const graph=netlib.graph(b,pads(b),unionNets(b));
@@ -579,7 +587,19 @@ function kicadDraft(b=board){
   line.push('  (property "Reference" '+q(c.id)+' (at 0 '+f(-comp.h/2-2.5)+') (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.12))))');
   const values={resistor:"R_GENERIC",led:"LED_GENERIC",capacitor:"C_GENERIC",conn2:"HEADER_2",conn3:"HEADER_3",ic4:"IC_GENERIC"};
   line.push('  (property "Value" '+q(values[c.kind])+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
-  line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
+  const graphics=footprintGraphics.get(c);
+  if(graphics){
+   for(const [i,seg]of graphics.lines.entries()){
+    line.push('  (fp_line (start '+f(seg.a[0])+' '+f(seg.a[1])+') (end '+f(seg.b[0])+' '+f(seg.b[1])+')'+
+     ' (stroke (width '+f(seg.w)+') (type default)) (layer '+q(seg.layer)+') (uuid "'+uid("outline-"+c.id+"-"+i)+'"))');
+   }
+   for(const [i,circle]of graphics.circles.entries()){
+    line.push('  (fp_circle (center '+f(circle.center[0])+' '+f(circle.center[1])+')'+
+     ' (end '+f(circle.center[0]+circle.radius)+' '+f(circle.center[1])+')'+
+     ' (stroke (width '+f(circle.w)+') (type default)) (fill none) (layer '+q(circle.layer)+')'+
+     ' (uuid "'+uid("circle-"+c.id+"-"+i)+'"))');
+   }
+  }else line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
    const p=comp.pads[i],ref=c.id+":"+(i+1),net=getNet(ref);
@@ -608,7 +628,7 @@ function svgDocument(){
  routing=previous;mousePoint=priorMouse;
  return '<?xml version="1.0" encoding="UTF-8"?>\n'+
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640">'+
-  '<style>.pcb-board{fill:#d9f2ef;stroke:#498b90;stroke-width:.4}.pcb-grid{stroke:#81aeb030;stroke-width:.1}.pcb-board-outline{fill:none;stroke:#398e86;stroke-width:.35}.pcb-comp-body{fill:#fff;stroke:#468da1;stroke-width:.28}.pcb-pad{fill:#d59b4d;stroke:#fff;stroke-width:.25}.pcb-comp-label{font:700 2.2px Arial;fill:#235579;text-anchor:middle}.pcb-trace{stroke:#de7b55;stroke-linecap:round}.pcb-trace.layer-b{stroke:#9f72cc}.pcb-via circle{fill:#bd82cd;stroke:#fff;stroke-width:.1}.pcb-via .pcb-via-hole{fill:#eff8ff}.pcb-board-mm{font:2px Arial;fill:#46787e;text-anchor:middle}</style>'+
+  '<style>.pcb-board{fill:#d9f2ef;stroke:#498b90;stroke-width:.4}.pcb-grid{stroke:#81aeb030;stroke-width:.1}.pcb-board-outline{fill:none;stroke:#398e86;stroke-width:.35}.pcb-comp-body{fill:#fff;stroke:#468da1;stroke-width:.28}.pcb-pad{fill:#d59b4d;stroke:#fff;stroke-width:.25}.pcb-footprint-silk{stroke:#357d8c;fill:none}.pcb-footprint-courtyard{stroke:#a4c6db;fill:none;stroke-dasharray:.5 .5}.pcb-comp-label{font:700 2.2px Arial;fill:#235579;text-anchor:middle}.pcb-trace{stroke:#de7b55;stroke-linecap:round}.pcb-trace.layer-b{stroke:#9f72cc}.pcb-via circle{fill:#bd82cd;stroke:#fff;stroke-width:.1}.pcb-via .pcb-via-hole{fill:#eff8ff}.pcb-board-mm{font:2px Arial;fill:#46787e;text-anchor:middle}</style>'+
   content+'</svg>';
 }
 function exportBoard(type){
