@@ -389,6 +389,25 @@ test("v3.0: invalid via size is rejected before persistence",()=>{
  assert.equal(pcb.test.isValidShape(b),false);
 });
 
+
+test("v3.0: moving a routed component invalidates geometry-anchored autoroutes",()=>{
+ const b=pcb.test.starter();b.schematic={nets:[{name:"DATA",pins:["J1:3","U1:2"]}]};
+ pcb.test.set(b);
+ const generated=pcb.autoRouteMissing();assert.ok(generated.success.length>0);
+ const before=pcb.test.read(),original=before.components.find(c=>c.id==="J1");
+ const sc=Math.min(820/b.width,505/b.height),
+  originX=(1000-b.width*sc)/2,originY=(640-b.height*sc)/2;
+ const x=originX+original.x*sc,y=originY+original.y*sc;
+ const target={closest(q){return q==="[data-component]"?{dataset:{component:"J1"}}:null}};
+ el("#pcbSvg").trigger("pointerdown",{target,pointerId:31,clientX:x,clientY:y});
+ el("#pcbSvg").trigger("pointermove",{target,pointerId:31,clientX:x+5*sc,clientY:y+2*sc});
+ el("#pcbSvg").trigger("pointerup",{target,pointerId:31});
+ assert.equal(pcb.test.read().traces.some(t=>t.sections),false);
+ assert.ok(pcb.test.read().components.find(c=>c.id==="J1").x>original.x);
+ pcb.undo();
+ assert.equal(pcb.test.read().traces.some(t=>t.sections),true);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
