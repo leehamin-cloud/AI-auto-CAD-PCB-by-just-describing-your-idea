@@ -34,6 +34,7 @@ run("public/workspace/pcb-pad-library.js");
 run("public/workspace/pcb-schematic.js");
 run("public/workspace/pcb-parity.js");
 run("public/workspace/pcb-kicad-schematic.js");
+run("public/workspace/pcb-router-v30.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
 assert.ok(net&&pcb,"PCB modules should load");
@@ -281,6 +282,56 @@ test("v2.9: interactive parity JSON export includes a blocked manufacture gate",
 });
 
 pcb.test.set(readySchematic);
+
+const routeTool=window.robotForgeRouter;
+test("v3.0: conservative router module loads with F and B layers",()=>{
+ assert.ok(routeTool.LAYERS.includes("B.Cu"));assert.ok(routeTool.LAYERS.includes("F.Cu"));
+});
+test("v3.0: legacy straight F.Cu traces still pass schema",()=>{
+ const b=pcb.test.starter();b.traces.push({id:"old-trace",a:"J1:1",b:"U1:1",width:0.5});
+ assert.equal(pcb.test.isValidShape(b),true);
+});
+test("v3.0: manual B.Cu trace is valid and exported on back copper",()=>{
+ const b=pcb.test.starter();b.traces.push({id:"back-trace",a:"J1:1",b:"U1:1",width:0.5,layer:"B.Cu"});
+ assert.equal(pcb.test.isValidShape(b),true);
+ assert.match(pcb.test.kicadDraft(b),/\(layer "B.Cu"\) \(net /);
+});
+test("v3.0: uncomplicated grid auto path avoids unnecessary vias",()=>{
+ const b=pcb.test.starter();b.components=[
+  {id:"J1",kind:"conn2",x:16,y:25,rotation:0},
+  {id:"J2",kind:"conn2",x:76,y:25,rotation:0}
+ ];b.traces=[];b.schematic={nets:[{name:"DATA",pins:["J1:1","J2:1"]}]};
+ const ctx={padPos:pcb.test.padPos,pads:pcb.test.pads,unionNets:pcb.test.unionNets,netPlan:net.netPlan};
+ const r=routeTool.candidate(b,"J1:1","J2:1",ctx,{layer:"F.Cu",allowVia:false,id:"test-simple"});
+ assert.equal(r.ok,true);assert.equal(r.trace.vias.length,0);
+ assert.equal(routeTool.validRoute(r.trace,b,ctx.padPos),true);
+});
+test("v3.0: automated routing adds an undoable PCB trace",()=>{
+ const b=pcb.test.starter();b.schematic={nets:[{name:"DATA",pins:["J1:3","U1:2"]}]};
+ pcb.test.set(b);
+ const result=pcb.autoRouteMissing();
+ assert.ok(result.success.length>=1,JSON.stringify(result.failed));
+ assert.ok(pcb.test.read().traces.length>=1);
+ pcb.undo();assert.equal(pcb.test.read().traces.length,0);
+});
+test("v3.0: routing returns explicit failure for impossible obstacles",()=>{
+ const b=pcb.test.starter();b.components=[
+  {id:"J1",kind:"conn2",x:16,y:25,rotation:0},
+  {id:"J2",kind:"conn2",x:76,y:25,rotation:0}
+ ];b.schematic={nets:[{name:"DATA",pins:["J1:1","J2:1"]}]};
+ const ctx={padPos:pcb.test.padPos,pads:pcb.test.pads,unionNets:pcb.test.unionNets,netPlan:net.netPlan};
+ const res=routeTool.candidate(b,"J1:1","J2:1",ctx,{layer:"B.Cu",allowVia:false,id:"test-back"});
+ assert.equal(res.ok,true);assert.equal(res.trace.sections[0].layer,"B.Cu");
+});
+test("v3.0: malformed via route is rejected",()=>{
+ const b=pcb.test.starter();b.traces.push({
+  id:"bad-via",a:"J1:1",b:"U1:1",width:0.5,layer:"F.Cu",
+  sections:[{layer:"F.Cu",points:[pcb.test.padPos("J1:1"),pcb.test.padPos("U1:1")]}],
+  vias:[{x:10,y:10,diameter:1.4,drill:0.6}]
+ });
+ assert.equal(pcb.test.isValidShape(b),false);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
