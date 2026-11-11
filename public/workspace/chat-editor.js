@@ -198,11 +198,13 @@
   function preview(){
     const el=$chat("#commandInput");if(!el)return;
     if(isOnline()){
+      window.robotForgeCADPreview?.clear();
       const text=el.value.trim();
       status({kind:"help",note:text?"AI가 문장을 해석합니다. 전송하면 검증 후 3D에 적용합니다.":"실제 AI 모드에서 작성한 내용은 서버로 전송됩니다."});
       return {kind:"online"};
     }
     const plan=parse(el.value);
+    window.robotForgeCADPreview?.set(plan);
     status(plan);
     return plan;
   }
@@ -324,11 +326,13 @@
     if(msg.length>1500){status({kind:"error",note:"1500자 이내로 입력해주세요."});return}
     if(aiSending)return;
     if(isOnline()){
+      window.robotForgeCADPreview?.clear();
       append("user",msg,true);
       field.value="";
       return sendOnlineAI(msg,field);
     }
     const plan=parse(msg);
+    window.robotForgeCADPreview?.clear();
     append("user",msg,true);
     field.value="";
     if(plan.kind==="error"||plan.kind==="empty"||plan.kind==="help"){
@@ -380,6 +384,7 @@
   }
   function clear(){
     transcript=[];
+    window.robotForgeCADPreview?.clear();
     try{localStorage.removeItem(sessionKey())}catch{}
     $chat("#chatHistory")?.replaceChildren();
     append("assistant",welcome,true);
@@ -395,7 +400,7 @@
         event.preventDefault();send();
       }
     });
-    $chat("#useOnlineAI")?.addEventListener("change",()=>{updateAIBadge();preview()});
+    $chat("#useOnlineAI")?.addEventListener("change",()=>{window.robotForgeCADPreview?.clear();updateAIBadge();preview()});
     $chat("#aiRetryButton")?.addEventListener("click",refreshAIStatus);
     refreshAIStatus();
     $chat("#chatClearButton")?.addEventListener("click",clear);
