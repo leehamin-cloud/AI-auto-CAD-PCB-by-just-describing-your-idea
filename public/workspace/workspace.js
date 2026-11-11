@@ -74,7 +74,7 @@ function boxPart(id,label,center,size,angle,color){
 function cylinderPart(id,label,center,r,length,color,segments=20){
  const triangles=[],y0=center[1]-length/2,y1=center[1]+length/2;
  for(let i=0;i<segments;i++){const a=i*2*Math.PI/segments,b=(i+1)*2*Math.PI/segments,p0=[center[0]+r*Math.cos(a),y0,center[2]+r*Math.sin(a)],p1=[center[0]+r*Math.cos(b),y0,center[2]+r*Math.sin(b)],q0=[p0[0],y1,p0[2]],q1=[p1[0],y1,p1[2]];
- triangles.push(tri(p0,p1,q1),tri(p0,q1,q0),tri([center[0],y0,center[2]],p1,p0),tri([center[0],y1,center[2]],q0,q1));
+ triangles.push(tri(p0,q1,p1),tri(p0,q0,q1),tri([center[0],y0,center[2]],p0,p1),tri([center[0],y1,center[2]],q1,q0));
  }return {id,label,color,triangles,volume:Math.PI*r*r*length};
 }
 function buildParts(){
@@ -241,7 +241,7 @@ function applyCommand(){
  ["payload",/(?:payload|하중)\s*(?:=|:|to|를|은)?\s*(\d+(?:\.\d+)?)/i]
  ];
  for(const [key,pat] of patterns){const m=text.match(pat);if(m){const val=Number(m[1]);const rule=limits[current().model].find(r=>r[0]===key);if(!rule){result="That parameter is not supported for this template.";break}if(!Number.isFinite(val)||val<rule[2]||val>rule[3]){result=rule[1]+" must stay between "+rule[2]+" and "+rule[3]+".";break}changes[key]=val}}
- if(!result&&Object.keys(changes).length){mutate(q=>Object.assign(q.params,changes),"Rule command: "+Object.keys(changes).join(", "));changed=true;result+="Updated "+Object.entries(changes).map(x=>x[0]+" = "+x[1]).join(", ")+". Mesh regenerated."}
+ if(Object.keys(changes).length&&!/(must stay between|not supported)/.test(result)){mutate(q=>Object.assign(q.params,changes),"Rule command: "+Object.keys(changes).join(", "));changed=true;result+="Updated "+Object.entries(changes).map(x=>x[0]+" = "+x[1]).join(", ")+". Mesh regenerated."}
  if(!result)result=changed?"Template updated.":"No supported change detected. Try: link1 150 link2 100, angle1 45, or create plate.";
  const reply=document.createElement("div");reply.className="chat-response";reply.textContent=result;hist.append(reply);hist.scrollTop=hist.scrollHeight;
  log(changed?"RULE":"INFO",result,!changed);notify(result,!changed);field.value="";
@@ -291,5 +291,5 @@ function bindUI(){
  resizeEl("leftResizer","left");resizeEl("rightResizer","right");
  if(window.ResizeObserver)new ResizeObserver(scheduleDraw).observe($("#canvasWrap"));window.addEventListener("resize",scheduleDraw);
 }
-function init(){load();bindUI();refresh();$("#eventLog").hidden=false;$("#checkList").hidden=true;log("SYSTEM","Local workspace ready. No cloud CAD backend connected.");log("GEOMETRY","Loaded "+parts.length+" procedural mesh components");scheduleDraw()}
+function init(){load();persist();bindUI();refresh();$("#eventLog").hidden=false;$("#checkList").hidden=true;log("SYSTEM","Local workspace ready. No cloud CAD backend connected.");log("GEOMETRY","Loaded "+parts.length+" procedural mesh components");scheduleDraw()}
 document.addEventListener("DOMContentLoaded",init);
