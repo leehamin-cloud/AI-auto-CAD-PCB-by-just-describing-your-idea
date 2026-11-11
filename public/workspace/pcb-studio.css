@@ -156,3 +156,9 @@ body.pcb-mode .pcb-canvas-top .pcb-view-toggle{margin-top:-2px}
 #pcbSvg .pcb-via .pcb-via-hole{fill:#e4f3f5;stroke:#5b779c;stroke-width:.1;pointer-events:none}
 #pcbSvg .pcb-footprint-silk{stroke:#397d91;fill:none;pointer-events:none}
 #pcbSvg .pcb-footprint-courtyard{stroke:#7facbb;fill:none;stroke-dasharray:.65 .65;pointer-events:none}
+
+.pcb-route-settings summary{color:#4e84a8;cursor:pointer;font-size:11px;font-weight:850;list-style:none;display:flex;align-items:center;justify-content:space-between}
+.pcb-route-settings summary::-webkit-details-marker{display:none}
+.pcb-route-settings summary::after{content:"⌄";font-size:14px;color:#76a4c0}
+.pcb-route-settings[open] summary{margin-bottom:13px}
+.pcb-route-settings[open] summary::after{content:"⌃"}
