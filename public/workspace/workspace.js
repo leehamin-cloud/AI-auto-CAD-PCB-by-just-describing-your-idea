@@ -35,6 +35,7 @@ function safeProject(obj){
  if(!obj||typeof obj!=="object"||!Object.hasOwn(limits,obj.model))throw Error("Unsupported project format");
  const p=makeProject(obj.name||"Imported project");p.model=obj.model;p.params={};
  for(const [name,,min,max] of limits[p.model]){const v=Number(obj.params?.[name]);p.params[name]=Number.isFinite(v)&&v>=min&&v<=max&&(name!=="hole_count"||[0,1,2,4].includes(v))?v:defaults[p.model][name]}
+ if(validateDesign(p.model,p.params))p.params=clone(defaults[p.model]);
  p.material=Object.hasOwn(density,obj.material)?obj.material:"aluminum";
  p.history=[{model:p.model,params:clone(p.params),material:p.material,label:"Imported scene",time:Date.now()}];p.cursor=0;
  return p;
@@ -58,7 +59,7 @@ function redo(){const p=current();if(p.cursor<p.history.length-1){restore(p.curs
 function newProject(name){const p=makeProject(name);projects.push(p);activeId=p.id;selectedPart=null;persist();refresh();log("PROJECT","Created "+p.name);notify("New local project created");return p}
 function renderLogs(){const el=$("#eventLog");el.innerHTML=events.map(x=>'<div class="event-row'+(x.warning?' warn':'')+'"><span class="event-time">'+esc(x.time)+'</span><span class="event-kind">'+esc(x.kind)+'</span><span class="event-text">'+esc(x.message)+'</span></div>').join("");$("#activityCount").textContent=String(events.length)}
 function renderChecks(){const isArm=current().model==="arm";const rows=[
- ["Mesh triangulation","GENERATED"],["Dimensions bounded","CHECKED"],["STL triangle export","AVAILABLE"],["B-rep / STEP kernel","NOT CONNECTED"],["PCB ERC / DRC","NOT EXECUTED"],["Physical engineering safety","UNVERIFIED"]
+ ["삼각형 메시 생성","생성됨"],["메시 닫힘·면 방향",meshDiagnostics(parts).closed?"검사 통과":"추가 점검 필요"],["치수 범위 검사","완료"],["STL 메시 저장","가능"],["B-rep / STEP kernel","NOT CONNECTED"],["PCB ERC / DRC","NOT EXECUTED"],["Physical engineering safety","UNVERIFIED"]
  ];if(isArm)rows.splice(3,0,["Two-joint gravity model","ANALYTIC ONLY"]);
  $("#checkList").innerHTML=rows.map(x=>'<div class="check-row"><span>'+esc(x[0])+'</span><b>'+esc(x[1])+'</b></div>').join("")}
 const add3=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -119,7 +120,6 @@ function meshPlatePart(a){
   circleCenters.push([cx,cy]);
   const angles=corners.map(([x,y])=>Math.atan2(y-cy,x-cx));
   for(let k=1;k<angles.length;k++)while(angles[k]<=angles[k-1])angles[k]+=2*Math.PI;
-  const ring=[];
   for(let q=0;q<4;q++){
    const a0=angles[q],a1=q===3?angles[0]+2*Math.PI:angles[q+1];
    const c0=corners[q],c1=corners[(q+1)%4],verts=[c0,c1];
@@ -131,7 +131,7 @@ function meshPlatePart(a){
     // Bore normals point inward, toward the material void.
     triangles.push(tri([aP[0],aP[1],0],[aP[0],aP[1],H],[bP[0],bP[1],H]));
     triangles.push(tri([aP[0],aP[1],0],[bP[0],bP[1],H],[bP[0],bP[1],0]));
-    ring.push([aP,bP]);
+
    }
   }
   // Vertical faces only at the external perimeter; never across internal cells.
@@ -180,7 +180,7 @@ function meshBracketPart(a){
 }
 function meshDiagnostics(items){
  const report={partCount:0,triangles:0,degenerate:0,boundaryEdges:0,nonManifoldEdges:0,reversedEdges:0,closed:true};
- function key(p){return p.map(n=>Number(n).toFixed(5)).join(",")}
+ function key(p){return p.map(n=>Math.abs(n)<0.000005?"0.00000":Number(n).toFixed(5)).join(",")}
  for(const part of items){
   if(!part.triangles?.length)continue;report.partCount++;
   const edges=new Map();
@@ -291,6 +291,11 @@ const beginnerParamLabels={
  base:["받침대 너비","바닥에 닿는 몸통의 크기"],
  width:["팔 부품의 폭","팔이 옆으로 얼마나 넓은지"],
  thickness:["팔 부품의 두께","팔 부품의 두께"],
+ diameter:["축의 지름","원형 축의 가장 넓은 폭"],
+ hole_count:["구멍 개수","0, 1, 2, 4개 중 하나를 선택하세요"],
+ hole_diameter:["구멍 지름","나사가 들어갈 구멍의 크기"],
+ offset_x:["좌우 가장자리 여백","판 가장자리에서 구멍 중심까지의 거리"],
+ offset_y:["위아래 가장자리 여백","판 가장자리에서 구멍 중심까지의 거리"],
  payload:["끝에 다는 무게","팔 끝에 매달 물건의 질량 (g)"],
  length:["가로 길이","부품의 긴 쪽 길이"],
  height:["높이","부품의 위아래 높이"]
@@ -340,18 +345,20 @@ function initBeginnerUX(){
 
 function renderSummary(){
  const p=current();$("#projectName").textContent=p.name;$("#documentTabName").textContent=p.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,30)+".rfscene";
- $("#componentCount").textContent=String(parts.length);$("#summaryType").textContent=p.model==="arm"?"2-DOF arm":p.model==="plate"?"Plate":"Block";
- $("#modelTitle").textContent=({arm:"움직이는 로봇팔",plate:"평평한 판",block:"네모 블록"}[p.model]||modelNames[p.model]);$("#modelSubtitle").textContent=({arm:"팔 길이와 관절 각도를 조절해요",plate:"가로·세로·두께를 바꿔보세요",block:"가로·세로·높이를 바꿔보세요"}[p.model]||modelSubtitles[p.model]);
+ $("#componentCount").textContent=String(parts.length);$("#summaryType").textContent=({arm:"로봇팔",plate:"구멍판",block:"블록",bracket:"ㄱ자 부품",shaft:"원통 축"}[p.model]||p.model);
+ $("#modelTitle").textContent=({arm:"움직이는 로봇팔",plate:"나사 구멍이 있는 판",block:"네모 블록",bracket:"ㄱ자 연결 브래킷",shaft:"원통 축"}[p.model]||modelNames[p.model]);$("#modelSubtitle").textContent=({arm:"팔 길이와 관절 각도를 조절해요",plate:"구멍 개수·크기·위치를 정해보세요",block:"가로·세로·높이를 바꿔보세요",bracket:"기계를 고정하는 ㄱ자 부품이에요",shaft:"회전축 모양을 만들어보세요"}[p.model]||modelSubtitles[p.model]);
  $("#templateSelect").value=p.model;$("#materialSelect").value=p.material;
  $("#volumeEstimate").textContent=fmt(totalVolume()/1000,2)+" cm³";
  $("#massEstimate").textContent=fmt(massFor(totalVolume(),p.material)*1000,1)+" g";
- $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>{const ko=beginnerParamLabels[key]||[label,""];const adv=p.model==="arm"&&!simpleArmKeys.has(key)?" advanced-parameter":"";return '<div class="param-row'+adv+'"><div class="param-head"><label for="param-'+key+'">'+esc(ko[0])+'</label><span class="param-unit">'+unit+'</span></div><input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'"><small class="param-help">'+esc(ko[1])+'</small></div>'}).join("");
+ const quality=meshDiagnostics(parts);const indicator=$("#meshHealth");if(indicator){indicator.textContent=quality.closed?"✓ 닫힌 3D 메시 · "+quality.triangles+"개 삼각형":"⚠ 메시 경계 점검 필요 · "+quality.boundaryEdges+"개";indicator.classList.toggle("mesh-warn",!quality.closed)}
+ $("#dynamicFields").innerHTML=limits[p.model].map(([key,label,min,max,step,unit])=>{const ko=beginnerParamLabels[key]||[label,""];const adv=(p.model==="arm"&&!simpleArmKeys.has(key))||(p.model==="plate"&&["offset_x","offset_y"].includes(key))?" advanced-parameter":"";const opts=key==="hole_count"?'<select class="select-control field-choice" id="param-hole_count" name="hole_count">'+[0,1,2,4].map(n=>'<option value="'+n+'" '+(p.params.hole_count===n?"selected":"")+'>'+n+'개</option>').join("")+'</select>':'<input type="number" inputmode="decimal" id="param-'+key+'" name="'+key+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+p.params[key]+'">';return '<div class="param-row'+adv+'"><div class="param-head"><label for="param-'+key+'">'+esc(ko[0])+'</label><span class="param-unit">'+unit+'</span></div>'+opts+'<small class="param-help">'+esc(ko[1])+'</small></div>'}).join("");
  $("#viewportTitle").textContent=p.model==="arm"?"3D 로봇팔 미리보기":"3D 부품 미리보기";
 }
 function refresh(){rebuild();renderHistory();renderSummary();renderProjectList();if(panel!=="cad")renderStage();}
 function editParams(){
  const p=current(),next={};
  for(const [key,label,min,max] of limits[p.model]){const input=$("#param-"+key);const n=Number(input.value);if(!input.value.trim()||!Number.isFinite(n)||n<min||n>max){input.focus();notify(label+" must be between "+min+" and "+max,true);return}next[key]=n}
+ const designError=validateDesign(p.model,next);if(designError){notify(designError,true);return}
  if(JSON.stringify(next)===JSON.stringify(p.params)){notify("No changes to apply");return}
  mutate(target=>{target.params=next},"Updated dimensional parameters");notify("Mesh regenerated and revision saved");
 }
@@ -425,7 +432,8 @@ function exportFile(type){
  let blob,ext;
  if(type==="json"){const scene={format:"RobotForgeBrowserScene",version:1,name:p.name,model:p.model,params:p.params,material:p.material,disclaimer:"Browser triangle mesh only; not verified for fabrication"};blob=new Blob([JSON.stringify(scene,null,2)],{type:"application/json"});ext="json"}
  else if(type==="bom"){const rows=[["Component","Volume_mm3","Mass_g_estimate","Material"],...parts.map(x=>[x.label,x.volume.toFixed(3),(massFor(x.volume,p.material)*1000).toFixed(3),p.material])];blob=new Blob([rows.map(row=>row.map(c=>'"'+String(c).replaceAll('"','""')+'"').join(",")).join("\n")],{type:"text/csv;charset=utf-8"});ext="csv"}
- else if(type==="stl"){let lines=["solid RobotForgeBrowserMesh"];for(const part of parts){if(p.hiddenParts.includes(part.id))continue;for(const v of part.triangles){const nn=unit(cross(sub3(v[1],v[0]),sub3(v[2],v[0])));lines.push("  facet normal "+nn.map(x=>x.toFixed(7)).join(" "),"    outer loop");for(const pt of v)lines.push("      vertex "+pt.map(x=>x.toFixed(5)).join(" "));lines.push("    endloop","  endfacet")}}lines.push("endsolid RobotForgeBrowserMesh");blob=new Blob([lines.join("\n")],{type:"model/stl"});ext="stl"}
+ else if(type==="stl"){const health=meshDiagnostics(parts.filter(part=>!p.hiddenParts.includes(part.id)));if(!health.closed){notify("메시가 완전히 닫히지 않아 내보내기를 중단했어요.",true);return}let lines=["solid RobotForgeBrowserMesh"];for(const part of parts){if(p.hiddenParts.includes(part.id))continue;for(const v of part.triangles){const nn=unit(cross(sub3(v[1],v[0]),sub3(v[2],v[0])));lines.push("  facet normal "+nn.map(x=>x.toFixed(7)).join(" "),"    outer loop");for(const pt of v)lines.push("      vertex "+pt.map(x=>x.toFixed(5)).join(" "));lines.push("    endloop","  endfacet")}}lines.push("endsolid RobotForgeBrowserMesh");blob=new Blob([lines.join("\n")],{type:"model/stl"});ext="stl"}
+ else if(type==="obj"){let lines=["# Robot Forge browser mesh; units: mm","# Not a parametric CAD solid"],index=1;for(const part of parts){if(p.hiddenParts.includes(part.id))continue;lines.push("o "+part.id);for(const face of part.triangles){for(const v of face)lines.push("v "+v.map(n=>n.toFixed(6)).join(" "));lines.push("f "+index+" "+(index+1)+" "+(index+2));index+=3}}blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"});ext="obj"}
  else return;
  const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=base+"-"+type+"."+ext;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);log("EXPORT","Downloaded "+link.download);notify("Downloaded "+ext.toUpperCase()+" to your device");
 }
