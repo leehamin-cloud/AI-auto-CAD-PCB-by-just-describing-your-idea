@@ -7,8 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
-const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity,router=window.robotForgeRouter,footprintGraphics=window.robotForgeFootprintGraphics;
-if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit||!router||!footprintGraphics)throw Error("PCB parts, pads, artwork, routing, parity and schematic modules are required");
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic,kicadSchematic=window.robotForgeKiCadSchematic,precisePads=window.robotForgeFootprintPads,parityAudit=window.robotForgePCBParity,router=window.robotForgeRouter,footprintGraphics=window.robotForgeFootprintGraphics,quality=window.robotForgePCBQuality;
+if(!partlib||!schem||!kicadSchematic||!precisePads||!parityAudit||!router||!footprintGraphics||!quality)throw Error("PCB parts, pads, artwork, quality, routing, parity and schematic modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -24,7 +24,7 @@ function starter(){
  {id:"D1",kind:"led",x:79,y:30,rotation:0}
  ],traces:[],schematic:{nets:[]}};
 }
-let board=starter(),revision=[],tool="move",active=false,selected=null,routing=null,pointer=null,scale=1,originX=0,originY=0,mousePoint=null,pcbView="layout";
+let board=starter(),revision=[],tool="move",active=false,selected=null,routing=null,pointer=null,scale=1,originX=0,originY=0,mousePoint=null,pcbView="layout",importedReports={};
 const netlib=window.robotForgeNetlist;
 if(!netlib)throw Error("PCB netlist module was not loaded");
 const traceWidths=new Set([0.3,0.5,0.8,1]);
@@ -39,7 +39,7 @@ function isValidShape(b){
  for(const c of b.components){
   if(!c||!lib[c.kind]||!/^([A-Z][1-9][0-9]{0,3})$/.test(c.id)||refs.has(c.id)||
     !Number.isFinite(c.x)||!Number.isFinite(c.y)||c.x<0||c.x>b.width||c.y<0||c.y>b.height||
-    ![0,90,180,270].includes(c.rotation)||!partlib.allowed(c)||!schem.pinRoleShape(c))return false;
+    ![0,90,180,270].includes(c.rotation)||!partlib.allowed(c)||!schem.pinRoleShape(c)||!quality.validPart(c.part))return false;
   refs.add(c.id);
  }
  for(const t of b.traces){
@@ -56,7 +56,7 @@ function projectKey(){
 }
 function load(){
  let saved=null;try{saved=JSON.parse(localStorage.getItem(projectKey())||"null")}catch{}
- board=isValidShape(saved)?saved:starter();if(!board.schematic)board.schematic={nets:[]};revision=[];selected=null;routing=null;mousePoint=null;pcbView="layout";
+ board=isValidShape(saved)?saved:starter();if(!board.schematic)board.schematic={nets:[]};revision=[];selected=null;routing=null;mousePoint=null;pcbView="layout";loadImportedReports();
  updateSizeInputs();setPcbView("layout");notice("PCB 초안 준비 완료 · 실제 회로 검증과 별개입니다.");
 }
 function save(){
@@ -110,7 +110,7 @@ function intersects(a,b,c,d){
  return e1*e2<-1e-8&&e3*e4<-1e-8;
 }
 function validate(b=board){
- const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b),logic=netlib.graph(b,allPads,net),erc=schem.check(b);
+ const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b),logic=netlib.graph(b,allPads,net),erc=schem.check(b),partQuality=quality.analyze(b,partlib);
  for(const c of b.components){
   const item=geometry(c),rad=c.rotation*Math.PI/180;
   const ex=(Math.abs(Math.cos(rad))*item.w+Math.abs(Math.sin(rad))*item.h)/2;
@@ -179,13 +179,15 @@ function validate(b=board){
  for(const short of logic.shorts)issues.push("전기적 연결 충돌: "+short.groups.join(" ↔ ")+" 신호가 하나의 구리 배선으로 합쳐졌습니다.");
  for(const open of logic.opens)issues.push("필수 배선 누락: "+open.name+" ("+open.groups.length+"개로 분리된 연결)");
  for(const error of erc.errors)issues.push("핀 기능 검사: "+error);
+ for(const error of partQuality.issues)issues.push("데이터시트 입력값 점검: "+error);
+ for(const warning of partQuality.warnings)warnings.push("데이터시트 입력값 점검: "+warning);
  for(const warn of erc.warnings)warnings.push("핀 기능 검토: "+warn);
  const singles=allPads.filter(p=>!net.nets.has(p.ref)).length;
  if(singles)warnings.push(singles+"개 패드가 배선에 연결되지 않았습니다. 회로도가 없어 필수 연결 여부는 판단할 수 없습니다.");
  warnings.push(logic.plans?"등록된 핀 연결 계획과 배선의 일치 여부만 검사했습니다. 실제 전자회로는 검증되지 않았습니다.":"필요한 핀 연결을 아직 등록하지 않았습니다. 회로의 전기적 정답은 검증되지 않았습니다.");
  warnings.push("이 검사는 단순 거리·교차 검사이며 KiCad DRC/ERC를 대체하지 않습니다.");
  insights.push(b.components.length+"개 부품 · "+b.traces.length+"개 배선 · "+net.netNames.length+"개 연결 그룹 · 필요한 신호 "+logic.plans+"개");
- return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames,opens:logic.opens,shorts:logic.shorts,planned:logic.plans,erc};
+ return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames,opens:logic.opens,shorts:logic.shorts,planned:logic.plans,erc,partQuality};
 }
 function getInfo(){
  const r=validate();
@@ -672,7 +674,7 @@ function exportBoard(type){
    format:"RobotForgePCBValidationManifest",version:1,scope:"browser_preliminary_checks",
    design:{board:{width_mm:board.width,height_mm:board.height},components:board.components.length,
     tracks:board.traces.length,logical_nets:netlib.netPlan(board).length},
-   browser_checks:{errors:result.issues,warnings:result.warnings,parity:parityFor(board),
+   browser_checks:{errors:result.issues,warnings:result.warnings,parity:parityFor(board),part_record_quality:result.partQuality,diagnostic_report_reference:quality.reportOverview(importedReports,board),
      missing_connections:result.opens,logical_shorts:result.shorts,
      pin_rule_errors:result.erc.errors,pin_rule_warnings:result.erc.warnings},
    footprint_reference:{selected:profile.selected,total:profile.all,manufacturer_verified:false,
