@@ -7,6 +7,8 @@ const deep=v=>JSON.parse(JSON.stringify(v));
 const num=v=>Number(v).toFixed(3).replace(/\.?0+$/,"");
 const safe=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const KEY="robotforge.pcb.studio.v25.";
+const partlib=window.robotForgePartCatalog,schem=window.robotForgeSchematic;
+if(!partlib||!schem)throw Error("PCB catalog and schematic modules are required");
 const lib={
  resistor:{label:"저항",prefix:"R",w:10,h:4,pads:[[-3.81,0],[3.81,0]]},
  led:{label:"LED",prefix:"D",w:9,h:5,pads:[[-2.54,0],[2.54,0]]},
@@ -27,6 +29,7 @@ const netlib=window.robotForgeNetlist;
 if(!netlib)throw Error("PCB netlist module was not loaded");
 const traceWidths=new Set([0.3,0.5,0.8,1]);
 const snap=n=>Math.round(n*2)/2;
+const geometry=c=>partlib.geometric(c,lib[c.kind]);
 function isValidShape(b){
  if(!b||b.format!=="RobotForgePCB"||b.version!==1||!Number.isFinite(b.width)||!Number.isFinite(b.height)||b.width<40||b.width>220||b.height<30||b.height>160)return false;
  if(!Array.isArray(b.components)||!Array.isArray(b.traces)||b.components.length>100||b.traces.length>300)return false;
@@ -34,7 +37,7 @@ function isValidShape(b){
  for(const c of b.components){
   if(!c||!lib[c.kind]||!/^([A-Z][1-9][0-9]{0,3})$/.test(c.id)||refs.has(c.id)||
     !Number.isFinite(c.x)||!Number.isFinite(c.y)||c.x<0||c.x>b.width||c.y<0||c.y>b.height||
-    ![0,90,180,270].includes(c.rotation))return false;
+    ![0,90,180,270].includes(c.rotation)||!partlib.allowed(c)||!schem.pinRoleShape(c))return false;
   refs.add(c.id);
  }
  for(const t of b.traces){
@@ -74,11 +77,11 @@ function padPos(reference,b=board){
  const [id,n]=String(reference).split(":");
  const c=b.components.find(c=>c.id===id);
  if(!c)return null;
- const p=lib[c.kind].pads[Number(n)-1];if(!p)return null;
+ const p=geometry(c).pads[Number(n)-1];if(!p)return null;
  const rad=c.rotation*Math.PI/180,co=Math.cos(rad),si=Math.sin(rad);
  return {x:c.x+p[0]*co-p[1]*si,y:c.y+p[0]*si+p[1]*co};
 }
-function pads(b=board){return b.components.flatMap(c=>lib[c.kind].pads.map((_,i)=>({ref:c.id+":"+(i+1),...padPos(c.id+":"+(i+1),b)})))}
+function pads(b=board){return b.components.flatMap(c=>geometry(c).pads.map((_,i)=>({ref:c.id+":"+(i+1),...padPos(c.id+":"+(i+1),b)})))}
 function trackLines(b=board){return b.traces.map(t=>({id:t.id,a:t.a,b:t.b,start:padPos(t.a,b),end:padPos(t.b,b),width:t.width})).filter(t=>t.start&&t.end)}
 function unionNets(b=board){
  const parent=new Map();
@@ -105,9 +108,9 @@ function intersects(a,b,c,d){
  return e1*e2<-1e-8&&e3*e4<-1e-8;
 }
 function validate(b=board){
- const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b),logic=netlib.graph(b,allPads,net);
+ const issues=[],warnings=[],insights=[],allPads=pads(b),lines=trackLines(b),net=unionNets(b),logic=netlib.graph(b,allPads,net),erc=schem.check(b);
  for(const c of b.components){
-  const item=lib[c.kind],rad=c.rotation*Math.PI/180;
+  const item=geometry(c),rad=c.rotation*Math.PI/180;
   const ex=(Math.abs(Math.cos(rad))*item.w+Math.abs(Math.sin(rad))*item.h)/2;
   const ey=(Math.abs(Math.sin(rad))*item.w+Math.abs(Math.cos(rad))*item.h)/2;
   if(c.x-ex<1.5||c.x+ex>b.width-1.5||c.y-ey<1.5||c.y+ey>b.height-1.5)
@@ -115,9 +118,9 @@ function validate(b=board){
  }
  // Approximate rotated component courtyards by axis-aligned bounding boxes.
  for(let i=0;i<b.components.length;i++)for(let j=i+1;j<b.components.length;j++){
-  const a=b.components[i],c=b.components[j],A=lib[a.kind],B=lib[c.kind];
+  const a=b.components[i],c=b.components[j];
   const ext=p=>{
-    const shape=lib[p.kind],angle=p.rotation*Math.PI/180;
+    const shape=geometry(p),angle=p.rotation*Math.PI/180;
     return {x:(Math.abs(Math.cos(angle))*shape.w+Math.abs(Math.sin(angle))*shape.h)/2,
             y:(Math.abs(Math.sin(angle))*shape.w+Math.abs(Math.cos(angle))*shape.h)/2};
   };
@@ -155,12 +158,14 @@ function validate(b=board){
  }
  for(const short of logic.shorts)issues.push("전기적 연결 충돌: "+short.groups.join(" ↔ ")+" 신호가 하나의 구리 배선으로 합쳐졌습니다.");
  for(const open of logic.opens)issues.push("필수 배선 누락: "+open.name+" ("+open.groups.length+"개로 분리된 연결)");
+ for(const error of erc.errors)issues.push("핀 기능 검사: "+error);
+ for(const warn of erc.warnings)warnings.push("핀 기능 검토: "+warn);
  const singles=allPads.filter(p=>!net.nets.has(p.ref)).length;
  if(singles)warnings.push(singles+"개 패드가 배선에 연결되지 않았습니다. 회로도가 없어 필수 연결 여부는 판단할 수 없습니다.");
  warnings.push(logic.plans?"등록된 핀 연결 계획과 배선의 일치 여부만 검사했습니다. 실제 전자회로는 검증되지 않았습니다.":"필요한 핀 연결을 아직 등록하지 않았습니다. 회로의 전기적 정답은 검증되지 않았습니다.");
  warnings.push("이 검사는 단순 거리·교차 검사이며 KiCad DRC/ERC를 대체하지 않습니다.");
  insights.push(b.components.length+"개 부품 · "+b.traces.length+"개 배선 · "+net.netNames.length+"개 연결 그룹 · 필요한 신호 "+logic.plans+"개");
- return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames,opens:logic.opens,shorts:logic.shorts,planned:logic.plans};
+ return {issues:[...new Set(issues)],warnings,insights,unconnected:singles,nets:net.netNames,opens:logic.opens,shorts:logic.shorts,planned:logic.plans,erc};
 }
 function getInfo(){
  const r=validate();
@@ -332,7 +337,7 @@ function shapeSvg(b=board){
   return '<line data-trace="'+safe(t.id)+'" class="pcb-trace'+on+'" x1="'+num(t.start.x)+'" y1="'+num(t.start.y)+'" x2="'+num(t.end.x)+'" y2="'+num(t.end.y)+'" stroke-width="'+num(t.width)+'" />';
  }).join("");
  const components=b.components.map(c=>{
-  const shape=lib[c.kind];const on=selected?.type==="component"&&selected.id===c.id?" pcb-comp-selected":"";
+  const shape=geometry(c);const on=selected?.type==="component"&&selected.id===c.id?" pcb-comp-selected":"";
   const padHtml=shape.pads.map((p,i)=>'<circle class="pcb-pad'+(routing===c.id+":"+(i+1)?" selected":"")+'" data-pad="'+c.id+":"+(i+1)+'" cx="'+num(p[0])+'" cy="'+num(p[1])+'" r="1.05" />').join("");
   const label='<text class="pcb-comp-label" x="0" y="'+num(-shape.h/2-2)+'">'+c.id+'</text>';
   return '<g data-component="'+c.id+'" class="pcb-component'+on+'" transform="translate('+num(c.x)+' '+num(c.y)+') rotate('+c.rotation+')">'+
@@ -415,7 +420,7 @@ function onPointerMove(evt){
  if(tool==="route"&&routing){mousePoint={x:snap(p.x),y:snap(p.y)};draw();return}
  if(!pointer||pointer.id!==evt.pointerId)return;
  const item=board.components.find(c=>c.id===pointer.comp);if(!item)return;
- const shape=lib[item.kind],w=item.rotation%180?shape.h:shape.w,h=item.rotation%180?shape.w:shape.h;
+ const shape=geometry(item),w=item.rotation%180?shape.h:shape.w,h=item.rotation%180?shape.w:shape.h;
  const x=snap(Math.min(board.width-w/2,Math.max(w/2,p.x+pointer.offsetX))),y=snap(Math.min(board.height-h/2,Math.max(h/2,p.y+pointer.offsetY)));
  if(x!==item.x||y!==item.y){item.x=x;item.y=y;pointer.moved=true;draw()}
 }
@@ -441,11 +446,12 @@ function kicadDraft(b=board){
  for(const net of connections.netNames)line.push(' (net '+net.number+' '+q(net.name)+')');
  line.push(' (gr_rect (start 0 0) (end '+f(b.width)+' '+f(b.height)+') (stroke (width 0.05) (type default)) (fill none) (layer "Edge.Cuts") (uuid "'+uid("outline") +'"))');
  for(const c of b.components){
-  const comp=lib[c.kind];
-  line.push(' (footprint '+q("RobotForge:"+c.kind)+' (layer "F.Cu") (at '+f(c.x)+' '+f(c.y)+' '+c.rotation+') (uuid "'+uid("fp"+c.id)+'")');
+  const comp=geometry(c),profile=partlib.get(c);
+  line.push(' (footprint '+q(profile?profile.footprint:"RobotForge:"+c.kind)+' (layer "F.Cu") (at '+f(c.x)+' '+f(c.y)+' '+c.rotation+') (uuid "'+uid("fp"+c.id)+'")');
   line.push('  (property "Reference" '+q(c.id)+' (at 0 '+f(-comp.h/2-2.5)+') (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (property "Value" '+q(comp.label)+' (at 0 '+f(comp.h/2+2.5)+') (layer "F.Fab") (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (fp_rect (start '+f(-comp.w/2)+' '+f(-comp.h/2)+') (end '+f(comp.w/2)+' '+f(comp.h/2)+') (stroke (width 0.12) (type default)) (fill none) (layer "F.SilkS") (uuid "'+uid("fpbody"+c.id)+'"))');
+  line.push('  (property "RobotForge_Notice" "Reference geometry, not validated against manufacturer part" (at 0 0) (layer "F.Fab") (hide yes) (effects (font (size 1 1) (thickness 0.12))))');
   line.push('  (attr through_hole)');
   for(let i=0;i<comp.pads.length;i++){
    const p=comp.pads[i],ref=c.id+":"+(i+1),net=getNet(ref);
