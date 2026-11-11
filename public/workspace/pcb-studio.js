@@ -778,7 +778,7 @@ function exportBoard(type){
  else if(type==="parts-csv"){
   const csvCell=value=>{
    let v=String(value??"");
-   if(/^\\s*[=+@-]/.test(v))v="'"+v; // Prevent CSV spreadsheet formula execution.
+   if(/^\s*[=+@-]/.test(v))v="'"+v; // Prevent CSV spreadsheet formula execution.
    return '"'+v.replace(/"/g,'""')+'"';
   };
   const headings=["Ref","Kind","FootprintCandidate","Manufacturer","MPN","DatasheetHTTPS",
@@ -789,7 +789,7 @@ function exportBoard(type){
     part.datasheetUrl||"",part.reviewedByUser?"self-declared":"no",
     part.maxVoltageV,part.operatingVoltageV,part.maxCurrentMa,part.operatingCurrentMa,part.datasheetPitchMm,"NO"];
   });
-  data="\\uFEFF"+[headings,...rows].map(r=>r.map(csvCell).join(",")).join("\\r\\n");
+  data="\uFEFF"+[headings,...rows].map(r=>r.map(csvCell).join(",")).join("\r\n");
   mime="text/csv";extension="parts.csv";
  }
  else if(type==="svg"){data=svgDocument();mime="image/svg+xml"}
