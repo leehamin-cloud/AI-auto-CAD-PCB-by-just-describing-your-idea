@@ -123,9 +123,18 @@
           <div class="ai-chat-head">
             <div class="ai-avatar">✦</div>
             <div class="ai-chat-heading"><strong>CAD 채팅 편집기</strong><span>입력 → 미리보기 → 즉시 3D 반영</span></div>
-            <span class="chat-local-tag" title="외부 AI 서버에 연결되지 않은 규칙 기반 편집기">로컬 명령</span>
+            <span id="chatProviderBadge" class="chat-local-tag" title="기본적으로 브라우저에서 규칙 기반 치수 편집을 사용합니다">로컬 채팅</span>
           </div>
-          <div class="chat-engine-note"><span class="chat-engine-dot"></span><span>바로 수정할 수 있어요. 현재는 <strong>규칙 기반 채팅</strong>이며 외부 AI 모델은 연결되지 않았습니다.</span></div>
+          <div class="chat-engine-note"><span class="chat-engine-dot"></span><span>바로 수정할 수 있어요. 기본은 <strong>규칙 기반 채팅</strong>입니다. 위의 설정을 통해 실제 AI를 연결할 수 있습니다.</span></div>
+          <details id="aiProviderOptions" class="ai-provider-options">
+            <summary><span>✧ 실제 OpenAI 모델 연결 <small id="aiConnectivity">서버 상태 확인 중</small></span><span class="provider-chevron">⌄</span></summary>
+            <div class="ai-provider-body">
+              <label class="ai-provider-toggle"><input type="checkbox" id="useOnlineAI" disabled><span>AI가 자유로운 문장을 해석하도록 사용</span></label>
+              <label for="aiAccessCode" class="ai-provider-label">AI 접근 코드</label>
+              <input type="password" id="aiAccessCode" autocomplete="off" placeholder="Render에 설정한 접근 코드" disabled>
+              <p>이 코드는 브라우저에 저장하지 않습니다. 실제 AI를 선택한 경우에만 입력 문장이 서버와 OpenAI API로 전달됩니다. 비용은 연결된 API 계정에서 발생합니다.</p>
+            </div>
+          </details>
           <div class="ai-chat-tools"><span id="chatSessionName">현재 모델의 설계 대화</span><button id="chatClearButton" type="button">대화 지우기</button></div>
           <div id="chatHistory" class="chat-history" role="log" aria-label="CAD 편집 대화" aria-live="polite" aria-relevant="additions">
             <div class="chat-response">안녕하세요! 🦾 원하는 로봇이나 부품의 모양을 말해주세요.<br>예: “구멍 4개짜리 판 만들어줘, 지름은 8mm”</div>
@@ -144,7 +153,7 @@
             <textarea id="commandInput" class="command-input" rows="3" placeholder="예: 구멍 4개 판 만들고 가로 180mm, 세로 100mm로 해줘" aria-describedby="chatLivePreview"></textarea>
             <div id="chatLivePreview" class="chat-live-preview" role="status" aria-live="polite"><span class="preview-dot"></span> 내용을 입력하면 변경 사항을 미리 보여드려요.</div>
             <div class="chat-compose-bottom"><span>Enter 전송 · Shift+Enter 줄바꿈</span><button class="apply-button" id="sendCommandButton" type="button">수정 적용 <span>↗</span></button></div>
-            <p class="chat-security">요청은 이 브라우저에서 처리됩니다. 실제 로봇 제어·외부 AI 호출·STEP 생성은 하지 않습니다.</p>
+            <p class="chat-security">로컬 모드에서는 이 브라우저만 사용합니다. 실제 AI 모드를 선택하면 입력 문장이 AI 서버로 전송됩니다. 로봇 구동·STEP 생성은 지원하지 않습니다.</p>
           </div>
         </div>
       </section>
