@@ -29,6 +29,8 @@ const context=vm.createContext({window,document,localStorage,setTimeout:fn=>0,
  current:()=>({id:projectId}),activatePanel(){},scheduleDraw(){},console});
 function run(file){vm.runInContext(fs.readFileSync(path.join(root,file),"utf8"),context,{filename:file})}
 run("public/workspace/pcb-netlist.js");
+run("public/workspace/pcb-parts.js");
+run("public/workspace/pcb-schematic.js");
 run("public/workspace/pcb-studio.js");
 const net=window.robotForgeNetlist,pcb=window.robotForgePCB;
 assert.ok(net&&pcb,"PCB modules should load");
@@ -91,6 +93,48 @@ test("project-local saved PCB data survives close and reload",()=>{
 test("SVG image and logical net JSON can be produced",()=>{
  assert.match(pcb.test.svgDocument(),/<svg/);assert.equal(net.netPlan(pcb.test.read()).length,2);
 });
+
+const catalog=window.robotForgePartCatalog,schematic=window.robotForgeSchematic;
+test("v2.7: six KiCad reference profiles exist",()=>assert.equal(Object.keys(catalog.profiles).length,6));
+test("v2.7: schematic symbol diagram renders all starter parts",()=>{
+ const d=schematic.drawing(pcb.test.starter());
+ assert.match(d,/심벌 회로도/);assert.match(d,/>J1</);assert.match(d,/>U1</);assert.match(d,/>D1</);
+});
+test("v2.7: proposed header pad pitch is 2.54 mm",()=>{
+ const b=pcb.test.starter();
+ b.components[0].profile=catalog.profiles.conn3.key;
+ assert.equal(pcb.test.isValidShape(b),true);
+ const a=pcb.test.padPos("J1:1",b),z=pcb.test.padPos("J1:2",b);
+ assert.ok(Math.abs(Math.abs(z.y-a.y)-2.54)<0.000001);
+});
+test("v2.7: LED pin labels distinguish cathode and anode",()=>{
+ const d=catalog.pins(pcb.test.starter().components[2]);
+ assert.match(d[0].name,/음극/);assert.match(d[1].name,/양극/);
+});
+test("v2.7: refuse unknown pin types in saved projects",()=>{
+ const b=pcb.test.starter();b.components[0].pinRoles={"1":"short_circuit"};
+ assert.equal(pcb.test.isValidShape(b),false);
+});
+test("v2.7: power-out role conflict is flagged",()=>{
+ const b=pcb.test.starter();net.add(b,"VCC","J1:1","U1:1");
+ b.components[0].pinRoles={"1":"power_out"};b.components[1].pinRoles={"1":"power_out"};
+ assert.equal(schematic.check(b).errors.some(x=>x.includes("전원 공급")),true);
+});
+test("v2.7: unpowered power-in is a warning, not approval",()=>{
+ const b=pcb.test.starter();net.add(b,"VCC","J1:1","U1:1");
+ b.components[1].pinRoles={"1":"power_in"};
+ assert.equal(schematic.check(b).warnings.some(x=>x.includes("전원 입력")),true);
+});
+test("v2.7: reference footprint ID appears in KiCad draft (not official geometry)",()=>{
+ const b=pcb.test.starter();b.components[0].profile=catalog.profiles.conn3.key;
+ pcb.test.set(b);
+ assert.match(pcb.test.kicadDraft(),/Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical/);
+ pcb.test.set(pcb.test.starter());
+});
+test("v2.7: schematic view is an SVG concept document",()=>{
+ assert.match(schematic.drawing(pcb.test.starter()),/^<svg xmlns=/);
+});
+
 const generated=pcb.test.kicadDraft();
 if(process.env.OUTPUT_DIR){
  const dest=path.resolve(process.env.OUTPUT_DIR);fs.mkdirSync(dest,{recursive:true});
