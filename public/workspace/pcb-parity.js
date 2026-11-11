@@ -55,6 +55,7 @@ function parity(board,helpers){
   }
   details.push({ref:comp.id,footprint:profile.footprint,
     checkedPads:spec.pads.length,source:spec.sourcePath,sourceBlobSha:spec.sourceBlobSha,
+    padDefinitions:spec.pads.map(p=>({pin:p.pin,shape:p.shape,size:p.size.slice(),drill:p.drill,offset:[p.x,p.y]})),
     exactPadDataFromUpstream:true,completeFootprintImported:false});
  }
  const summary={pinCount:padRefs.length,plannedNetCount:expected.length,physicalGroupCount:physicalGroups.length,componentCount:board.components.length,
